@@ -10,8 +10,9 @@ imports, measures rows and distinct values in DuckDB, and gives a rough size:
 
 It ignores run-length encoding and per-segment overheads, so treat the result
 as a ranking of where the size goes, not as the size the service will report.
-It also measures the columns the views offer but the model leaves out, and how
-far the GL fact would shrink if the view grouped it to the model's grain.
+It also measures the GL line-view columns the summary view drops (journal id,
+line number, transaction date, local amount) and how many rows the grouping
+saves.
 
     python -m semlayer.model_size --data data
 """
@@ -68,19 +69,33 @@ def column_stats(con, model: tmdl.Model) -> list[ColumnStat]:
 
 
 def gl_grain_reduction(con) -> tuple[int, int]:
-    """(line rows, rows if grouped to the columns the model imports)."""
+    """(rows in the GL line view, rows in the summary view the model imports)."""
     lines = con.execute("SELECT COUNT(*) FROM fin.vw_fact_gl_actual").fetchone()[0]
-    grouped = con.execute(
-        "SELECT COUNT(*) FROM (SELECT DISTINCT period_date_key, posting_date, account_key, "
-        "cost_center_key, entity_key, is_reversal FROM fin.vw_fact_gl_actual)"
-    ).fetchone()[0]
+    grouped = con.execute("SELECT COUNT(*) FROM fin.vw_fact_gl_summary").fetchone()[0]
     return lines, grouped
+
+
+def line_view_stats(con) -> list[ColumnStat]:
+    """The columns the summary view drops, measured on the line view."""
+    rows = con.execute("SELECT COUNT(*) FROM fin.vw_fact_gl_actual").fetchone()[0]
+    out = []
+    for c in ("journal_id", "line_number", "transaction_date", "amount_local"):
+        distinct = con.execute(f"SELECT COUNT(DISTINCT {c}) FROM fin.vw_fact_gl_actual").fetchone()[
+            0
+        ]
+        bits = max(1, math.ceil(math.log2(max(distinct, 2))))
+        out.append(
+            ColumnStat(
+                "GL line view", c, False, rows, distinct, int(distinct * 8 + rows * bits / 8)
+            )
+        )
+    return out
 
 
 def report(data_dir: Path) -> str:
     con = warehouse.connect(data_dir)
     model = tmdl.load(DEFINITION)
-    stats = column_stats(con, model)
+    stats = column_stats(con, model) + line_view_stats(con)
     lines = [
         "| Table | Column | In model | Rows | Distinct | Approx. bytes |",
         "|---|---|---|---|---|---|",
@@ -96,8 +111,8 @@ def report(data_dir: Path) -> str:
     lines += [
         "",
         f"Imported columns: {in_model:,} approx. bytes. Columns left out: {left_out:,}.",
-        f"GL Actual: {raw:,} line rows; {grouped:,} rows if grouped to the imported columns "
-        f"({raw / max(grouped, 1):.2f}x).",
+        f"GL Actual: {raw:,} rows in the line view, {grouped:,} in the summary view the "
+        f"model imports ({raw / max(grouped, 1):.2f}x fewer).",
     ]
     return "\n".join(lines)
 

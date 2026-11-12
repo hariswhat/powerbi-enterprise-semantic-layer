@@ -1,4 +1,4 @@
-/// Journal lines summed to account x cost center x entity x period by the engine. Partitioned by posting date (ADR-0004).
+/// GL actuals at account x cost center x entity x period x posting date (fin.vw_fact_gl_summary). Partitioned by posting date (ADR-0004).
 table 'GL Actual'
 	lineageTag: b3fbc0dd-9da0-5935-bcc9-f6756bd163dc
 
@@ -67,7 +67,7 @@ table 'GL Actual'
 		source =
 				let
 				    Source = Sql.Database(SqlServer, SqlDatabase),
-				    View = Source{[Schema = "fin", Item = "vw_fact_gl_actual"]}[Data],
+				    View = Source{[Schema = "fin", Item = "vw_fact_gl_summary"]}[Data],
 				    Kept = Table.SelectColumns(View, {"period_date_key", "posting_date", "account_key", "cost_center_key", "entity_key", "is_reversal", "amount_usd", "amount_usd_budget_rate"}),
 				    InWindow = Table.SelectRows(Kept, each [posting_date] >= RangeStart and [posting_date] < RangeEnd)
 				in
@@ -82,7 +82,7 @@ table 'GL Actual'
 		sourceExpression =
 				let
 				    Source = Sql.Database(SqlServer, SqlDatabase),
-				    View = Source{[Schema = "fin", Item = "vw_fact_gl_actual"]}[Data],
+				    View = Source{[Schema = "fin", Item = "vw_fact_gl_summary"]}[Data],
 				    Kept = Table.SelectColumns(View, {"period_date_key", "posting_date", "account_key", "cost_center_key", "entity_key", "is_reversal", "amount_usd", "amount_usd_budget_rate"}),
 				    InWindow = Table.SelectRows(Kept, each [posting_date] >= RangeStart and [posting_date] < RangeEnd)
 				in

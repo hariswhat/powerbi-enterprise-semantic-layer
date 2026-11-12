@@ -4,11 +4,21 @@ leaves out."""
 from semlayer import model_size
 
 
-def test_stats_cover_imported_and_excluded_columns(con, model):
-    stats = model_size.column_stats(con, model)
-    gl = {s.column: s for s in stats if s.table == "GL Actual"}
+def test_stats_cover_imported_and_dropped_columns(con, model):
+    stats = model_size.column_stats(con, model) + model_size.line_view_stats(con)
+    gl = {s.column: s for s in stats if s.table in ("GL Actual", "GL line view")}
     assert gl["amount_usd"].in_model and not gl["journal_id"].in_model
     assert gl["journal_id"].distinct > gl["account_key"].distinct
+
+
+def test_summary_view_keeps_totals_and_has_fewer_rows(con):
+    lines, grouped = model_size.gl_grain_reduction(con)
+    assert grouped <= lines
+    a, b = con.execute(
+        "SELECT (SELECT SUM(amount_usd) FROM fin.vw_fact_gl_actual), "
+        "(SELECT SUM(amount_usd) FROM fin.vw_fact_gl_summary)"
+    ).fetchone()
+    assert abs(a - b) < 0.01
 
 
 def test_incremental_refresh_is_keyed_on_posting_date(model):
@@ -39,5 +49,5 @@ def test_incremental_window_covers_late_postings(con, model):
 
 def test_report_renders(data_dir):
     text = model_size.report(data_dir)
-    assert "| GL Actual | journal_id | no |" in text
-    assert "rows if grouped" in text
+    assert "| GL line view | journal_id | no |" in text
+    assert "summary view the model imports" in text

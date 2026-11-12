@@ -42,6 +42,33 @@ INNER JOIN dw.fx_rate AS fx
    AND fx.month_start = gl.period_date;
 GO
 
+-- What the model imports: GL lines summed to the columns the model uses.
+-- Journal and line numbers are not in the model (nothing reports on them and
+-- they are the highest-cardinality columns), so keeping line grain only adds
+-- rows. Grouping keeps posting_date, which the refresh policy needs, and
+-- is_reversal. semlayer.model_size measures the reduction (ADR-0004). The line
+-- view above stays for reconciliation and for the measure contracts, which
+-- therefore check this grouping as well as the model.
+CREATE OR ALTER VIEW fin.vw_fact_gl_summary AS
+SELECT
+      gl.period_date_key
+    , gl.posting_date
+    , gl.account_key
+    , gl.cost_center_key
+    , gl.entity_key
+    , gl.is_reversal
+    , SUM(gl.amount_usd) AS amount_usd
+    , SUM(gl.amount_usd_budget_rate) AS amount_usd_budget_rate
+FROM fin.vw_fact_gl_actual AS gl
+GROUP BY
+      gl.period_date_key
+    , gl.posting_date
+    , gl.account_key
+    , gl.cost_center_key
+    , gl.entity_key
+    , gl.is_reversal;
+GO
+
 CREATE OR ALTER VIEW fin.vw_fact_budget AS
 SELECT
       CAST(
