@@ -1,0 +1,43 @@
+name: time_calculation_fy2026
+description: Every Time Calculation item on Actual, by fiscal period of FY2026. YTD resets in July, QTD every three periods; PY is the same period of FY2025.
+measures: [Actual]
+calculation_items: [Current, QTD, YTD, PY, PY YTD, YoY, YoY %]
+keys: ["Date[Fiscal Period]"]
+dax: |
+  EVALUATE
+  SUMMARIZECOLUMNS(
+      'Date'[Fiscal Period],
+      TREATAS({"FY2026"}, 'Date'[Fiscal Year]),
+      "Actual", CALCULATE([Actual], 'Time Calculation'[Time Calculation] = "Current"),
+      "Actual QTD", CALCULATE([Actual], 'Time Calculation'[Time Calculation] = "QTD"),
+      "Actual YTD", CALCULATE([Actual], 'Time Calculation'[Time Calculation] = "YTD"),
+      "Actual PY", CALCULATE([Actual], 'Time Calculation'[Time Calculation] = "PY"),
+      "Actual PY YTD", CALCULATE([Actual], 'Time Calculation'[Time Calculation] = "PY YTD"),
+      "Actual YoY", CALCULATE([Actual], 'Time Calculation'[Time Calculation] = "YoY"),
+      "Actual YoY %", CALCULATE([Actual], 'Time Calculation'[Time Calculation] = "YoY %")
+  )
+sql: |
+  WITH m AS (
+      SELECT d.fiscal_year AS fy, d.fiscal_period AS fp, d.fiscal_quarter AS fq
+           , MIN(d.fiscal_period_label) AS label, SUM(f.amount_usd) AS amt
+      FROM fin.vw_fact_gl_actual AS f
+      JOIN fin.vw_dim_date AS d ON d.date_key = f.period_date_key
+      GROUP BY 1, 2, 3
+  ), w AS (
+      SELECT *
+           , SUM(amt) OVER (PARTITION BY fy ORDER BY fp) AS ytd
+           , SUM(amt) OVER (PARTITION BY fy, fq ORDER BY fp) AS qtd
+      FROM m
+  )
+  SELECT
+        c.label AS "Date[Fiscal Period]"
+      , c.amt AS "[Actual]"
+      , c.qtd AS "[Actual QTD]"
+      , c.ytd AS "[Actual YTD]"
+      , p.amt AS "[Actual PY]"
+      , p.ytd AS "[Actual PY YTD]"
+      , c.amt - p.amt AS "[Actual YoY]"
+      , (c.amt - p.amt) / NULLIF(ABS(p.amt), 0) AS "[Actual YoY %]"
+  FROM w AS c
+  LEFT JOIN w AS p ON p.fy = c.fy - 1 AND p.fp = c.fp
+  WHERE c.fy = 2026

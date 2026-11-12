@@ -1,0 +1,117 @@
+/// Marked date table (dataCategory Time, key on Date). Fiscal year starts 1 July.
+table Date
+	lineageTag: b5c8e768-98b1-54b6-9aa0-5c4d67acddc0
+	dataCategory: Time
+
+	/// Calendar date. Facts join on the first day of the fiscal period.
+	column Date
+		dataType: dateTime
+		isKey
+		formatString: yyyy-mm-dd
+		lineageTag: 65a6c753-c25c-5727-aaa3-2361c51a9969
+		summarizeBy: none
+		sourceColumn: calendar_date
+
+	column 'Date Key'
+		dataType: int64
+		isHidden
+		lineageTag: 21bb9ed8-6f12-5624-a110-8efc90a4d63f
+		summarizeBy: none
+		sourceColumn: date_key
+
+	column 'Calendar Year'
+		dataType: int64
+		lineageTag: b1aa25be-ddf1-59d6-92b5-785a9a855f76
+		summarizeBy: none
+		sourceColumn: calendar_year
+
+	column 'Calendar Month'
+		dataType: int64
+		isHidden
+		lineageTag: 400ce80f-482a-5f48-80c7-c20186ee9f18
+		summarizeBy: none
+		sourceColumn: calendar_month
+
+	column Month
+		dataType: string
+		lineageTag: 32eec35f-546b-5613-b24e-82c9a83f2727
+		summarizeBy: none
+		sourceColumn: month_name
+		sortByColumn: 'Calendar Month'
+
+	column 'Fiscal Year Number'
+		dataType: int64
+		isHidden
+		lineageTag: 457d10a1-665d-5112-9fc5-c7c2f6422f49
+		summarizeBy: none
+		sourceColumn: fiscal_year
+
+	/// FY2026 runs from 1 July 2025 to 30 June 2026.
+	column 'Fiscal Year'
+		dataType: string
+		lineageTag: 05177772-754e-52a4-a3f2-258f0407e3e0
+		summarizeBy: none
+		sourceColumn: fiscal_year_label
+		sortByColumn: 'Fiscal Year Number'
+
+	column 'Fiscal Quarter'
+		dataType: int64
+		lineageTag: a78cbf1b-279e-5e84-9a4c-6ddcf95f147a
+		summarizeBy: none
+		sourceColumn: fiscal_quarter
+
+	column 'Fiscal Period Number'
+		dataType: int64
+		isHidden
+		lineageTag: 1667b779-dca3-525d-9554-d76e8de2a5ed
+		summarizeBy: none
+		sourceColumn: fiscal_period
+
+	/// FY26 P01 is July 2025.
+	column 'Fiscal Period'
+		dataType: string
+		lineageTag: 646db90e-8e8d-510f-ae9e-3a721d198bf5
+		summarizeBy: none
+		sourceColumn: fiscal_period_label
+		sortByColumn: 'Period Start'
+
+	column 'Period Start'
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		lineageTag: 29225ec9-8388-5312-9a6c-164a449c921b
+		summarizeBy: none
+		sourceColumn: period_start_date
+
+	column 'Period End'
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		lineageTag: a7117a3b-6852-5f35-8177-30a7a010ae2a
+		summarizeBy: none
+		sourceColumn: period_end_date
+
+	hierarchy Fiscal
+		lineageTag: 880b7181-9cb4-57a6-b2ec-42d87b1c566a
+
+		level 'Fiscal Year'
+			lineageTag: afbeb154-2728-5e82-a1d4-2e2bb2dd8bd3
+			column: 'Fiscal Year'
+
+		level 'Fiscal Quarter'
+			lineageTag: c5b5f552-6c9e-521d-a67f-58f0dde914c3
+			column: 'Fiscal Quarter'
+
+		level 'Fiscal Period'
+			lineageTag: 03a58a34-3c20-55dc-9ccd-6aca095dc432
+			column: 'Fiscal Period'
+
+	partition Date = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    View = Source{[Schema = "fin", Item = "vw_dim_date"]}[Data],
+				    Kept = Table.SelectColumns(View, {"date_key", "calendar_date", "calendar_year", "calendar_month", "month_name", "fiscal_year", "fiscal_year_label", "fiscal_quarter", "fiscal_period", "fiscal_period_label", "period_start_date", "period_end_date"})
+				in
+				    Kept

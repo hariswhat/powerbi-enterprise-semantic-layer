@@ -1,0 +1,30 @@
+name: forecast_versions
+description: Forecast with no version filter uses the latest version (9+3); with a version filtered it uses that version.
+measures: [Forecast, Forecast Variance]
+keys: ["Date[Fiscal Year]"]
+dax: |
+  EVALUATE
+  SUMMARIZECOLUMNS(
+      'Date'[Fiscal Year],
+      "Forecast", [Forecast],
+      "Forecast Variance", [Forecast Variance],
+      "Forecast 3+9", CALCULATE([Forecast], Forecast[Forecast Version] = "3+9")
+  )
+sql: |
+  WITH a AS (
+      SELECT d.fiscal_year_label AS fy, SUM(f.amount_usd_budget_rate) AS act
+      FROM fin.vw_fact_gl_actual AS f JOIN fin.vw_dim_date AS d ON d.date_key = f.period_date_key
+      GROUP BY 1
+  ), f AS (
+      SELECT d.fiscal_year_label AS fy
+           , SUM(CASE WHEN f.forecast_version = '9+3' THEN f.amount_usd END) AS latest
+           , SUM(CASE WHEN f.forecast_version = '3+9' THEN f.amount_usd END) AS first_version
+      FROM fin.vw_fact_forecast AS f JOIN fin.vw_dim_date AS d ON d.date_key = f.period_date_key
+      GROUP BY 1
+  )
+  SELECT
+        f.fy AS "Date[Fiscal Year]"
+      , f.latest AS "[Forecast]"
+      , COALESCE(a.act, 0) - f.latest AS "[Forecast Variance]"
+      , f.first_version AS "[Forecast 3+9]"
+  FROM f LEFT JOIN a ON a.fy = f.fy

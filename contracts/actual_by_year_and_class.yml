@@ -1,0 +1,20 @@
+name: actual_by_year_and_class
+description: Actual by fiscal year and account class. Checks the sign convention (income positive, expense negative) and the period-date relationship.
+measures: [Actual]
+keys: ["Date[Fiscal Year]", "Account[Account Class]"]
+dax: |
+  EVALUATE
+  SUMMARIZECOLUMNS(
+      'Date'[Fiscal Year],
+      Account[Account Class],
+      "Actual", [Actual]
+  )
+sql: |
+  SELECT
+        d.fiscal_year_label AS "Date[Fiscal Year]"
+      , a.account_class AS "Account[Account Class]"
+      , SUM(f.amount_usd) AS "[Actual]"
+  FROM fin.vw_fact_gl_actual AS f
+  JOIN fin.vw_dim_date AS d ON d.date_key = f.period_date_key
+  JOIN fin.vw_dim_account AS a ON a.account_key = f.account_key
+  GROUP BY 1, 2

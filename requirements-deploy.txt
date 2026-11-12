@@ -1,0 +1,5 @@
+# Only the release pipeline needs these.
+-r requirements.txt
+azure-identity==1.19.0
+fabric-cicd==0.1.7
+requests==2.32.3

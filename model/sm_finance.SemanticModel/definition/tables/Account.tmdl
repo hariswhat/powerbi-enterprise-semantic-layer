@@ -1,0 +1,75 @@
+/// Chart of accounts, flattened to three levels in the source view.
+table Account
+	lineageTag: 1e740957-a04f-5831-a2c9-1fedf0b015ce
+
+	column 'Account Key'
+		dataType: int64
+		isHidden
+		lineageTag: 33a36059-34e3-5cf4-ac68-d05c35c6c17e
+		summarizeBy: none
+		sourceColumn: account_key
+
+	column 'Account Code'
+		dataType: string
+		lineageTag: fd149d35-11f2-5648-88d4-ca565cb3894a
+		summarizeBy: none
+		sourceColumn: account_code
+
+	column Account
+		dataType: string
+		lineageTag: aae56d8a-1fbd-5e88-98d4-834acf3ca476
+		summarizeBy: none
+		sourceColumn: account_name
+
+	column 'Statement Line'
+		dataType: string
+		lineageTag: f860306c-03da-53f9-9b9d-75216eb29e25
+		summarizeBy: none
+		sourceColumn: statement_line
+
+	/// Revenue, COGS, Opex, Other. Amounts are signed: income positive, expense negative.
+	column 'Account Class'
+		dataType: string
+		lineageTag: 380427c4-2fc8-5ad3-95db-b78ecaf09809
+		summarizeBy: none
+		sourceColumn: account_class
+		sortByColumn: 'Account Class Sort'
+
+	column 'Account Class Sort'
+		dataType: int64
+		isHidden
+		lineageTag: 832f72f2-09b0-5a73-a467-37d02dbe1165
+		summarizeBy: none
+		sourceColumn: account_class_sort
+
+	column 'Is Payroll'
+		dataType: int64
+		isHidden
+		lineageTag: 558dcaea-e07a-5dbb-9462-b11720b724f3
+		summarizeBy: none
+		sourceColumn: is_payroll
+
+	hierarchy 'P&L'
+		lineageTag: b21c3fd8-fedb-5301-a150-05c582382b9d
+
+		level 'Account Class'
+			lineageTag: 1fd63318-b59f-5f2f-b309-83b61c41f056
+			column: 'Account Class'
+
+		level 'Statement Line'
+			lineageTag: e88c43a0-5837-53bf-b126-48038d3984ad
+			column: 'Statement Line'
+
+		level Account
+			lineageTag: cbfdca0c-b40f-51b9-aaad-69c263a25ad2
+			column: Account
+
+	partition Account = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    View = Source{[Schema = "fin", Item = "vw_dim_account"]}[Data],
+				    Kept = Table.SelectColumns(View, {"account_key", "account_code", "account_name", "statement_line", "account_class", "account_class_sort", "is_payroll"})
+				in
+				    Kept

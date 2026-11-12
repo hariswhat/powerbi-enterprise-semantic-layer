@@ -1,0 +1,11 @@
+# fabric-cicd parameter file. The model in Git holds the dev values; each rule
+# replaces one for tst or prd. Hostnames are made up for this repo.
+
+find_replace:
+  # Warehouse server, in the SqlServer expression (expressions.tmdl)
+  - find_value: "devsqlfin000000.database.windows.net"
+    replace_value:
+      dev: "devsqlfin000000.database.windows.net"
+      tst: "tstsqlfin000000.database.windows.net"
+      prd: "prdsqlfin000000.database.windows.net"
+    item_type: [SemanticModel]

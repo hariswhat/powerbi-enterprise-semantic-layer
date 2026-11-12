@@ -1,0 +1,24 @@
+name: constant_currency_by_entity
+description: Actual at the average rate, at the budget rate, and the difference, by fiscal year and entity. The USD entity must show zero FX impact.
+measures: [Actual, Actual at Budget Rate, FX Impact]
+keys: ["Date[Fiscal Year]", "Entity[Entity Code]"]
+dax: |
+  EVALUATE
+  SUMMARIZECOLUMNS(
+      'Date'[Fiscal Year],
+      Entity[Entity Code],
+      "Actual", [Actual],
+      "Actual at Budget Rate", [Actual at Budget Rate],
+      "FX Impact", [FX Impact]
+  )
+sql: |
+  SELECT
+        d.fiscal_year_label AS "Date[Fiscal Year]"
+      , e.entity_code AS "Entity[Entity Code]"
+      , SUM(f.amount_usd) AS "[Actual]"
+      , SUM(f.amount_usd_budget_rate) AS "[Actual at Budget Rate]"
+      , SUM(f.amount_usd) - SUM(f.amount_usd_budget_rate) AS "[FX Impact]"
+  FROM fin.vw_fact_gl_actual AS f
+  JOIN fin.vw_dim_date AS d ON d.date_key = f.period_date_key
+  JOIN fin.vw_dim_entity AS e ON e.entity_key = f.entity_key
+  GROUP BY 1, 2

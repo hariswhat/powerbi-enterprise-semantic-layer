@@ -1,0 +1,3 @@
+/// Corporate finance: every row and every table.
+role 'Finance Full Access'
+	modelPermission: read

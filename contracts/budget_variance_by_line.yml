@@ -1,0 +1,34 @@
+name: budget_variance_by_line
+description: Budget and constant-currency variance by fiscal year and statement line. A line with budget but no actuals still appears.
+measures: [Budget, Budget Variance, Budget Variance %]
+keys: ["Date[Fiscal Year]", "Account[Statement Line]"]
+dax: |
+  EVALUATE
+  SUMMARIZECOLUMNS(
+      'Date'[Fiscal Year],
+      Account[Statement Line],
+      "Budget", [Budget],
+      "Budget Variance", [Budget Variance],
+      "Budget Variance %", [Budget Variance %]
+  )
+sql: |
+  WITH a AS (
+      SELECT d.fiscal_year_label AS fy, ac.statement_line AS line, SUM(f.amount_usd_budget_rate) AS act
+      FROM fin.vw_fact_gl_actual AS f
+      JOIN fin.vw_dim_date AS d ON d.date_key = f.period_date_key
+      JOIN fin.vw_dim_account AS ac ON ac.account_key = f.account_key
+      GROUP BY 1, 2
+  ), b AS (
+      SELECT d.fiscal_year_label AS fy, ac.statement_line AS line, SUM(f.amount_usd) AS bud
+      FROM fin.vw_fact_budget AS f
+      JOIN fin.vw_dim_date AS d ON d.date_key = f.period_date_key
+      JOIN fin.vw_dim_account AS ac ON ac.account_key = f.account_key
+      GROUP BY 1, 2
+  )
+  SELECT
+        COALESCE(a.fy, b.fy) AS "Date[Fiscal Year]"
+      , COALESCE(a.line, b.line) AS "Account[Statement Line]"
+      , b.bud AS "[Budget]"
+      , COALESCE(a.act, 0) - COALESCE(b.bud, 0) AS "[Budget Variance]"
+      , (COALESCE(a.act, 0) - COALESCE(b.bud, 0)) / NULLIF(ABS(b.bud), 0) AS "[Budget Variance %]"
+  FROM a FULL OUTER JOIN b ON a.fy = b.fy AND a.line = b.line

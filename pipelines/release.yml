@@ -1,0 +1,72 @@
+# Release sm_finance: tst, then prd after approval.
+#
+# tst: deploy, refresh, then run every measure contract against the refreshed
+# model. The tst warehouse is loaded from the generator with the same seed and
+# scale as the contracts' SQL side, so the two must agree to the cent.
+# prd: deploy and refresh only. Contracts are not run in prd, where the data is
+# real and the SQL side would have to read the production warehouse.
+
+trigger:
+  branches: { include: [main] }
+  paths: { include: [model/*, deploy/*, contracts/*, sql/*] }
+
+variables:
+  SCALE: "0.02"
+  SEED: "7"
+
+stages:
+  - stage: validate
+    pool: { vmImage: ubuntu-latest }
+    jobs:
+      - job: checks
+        steps:
+          - task: UsePythonVersion@0
+            inputs: { versionSpec: '3.11' }
+          - script: |
+              python -m pip install -r requirements-dev.txt
+              python -m semlayer.check
+              pytest -q
+              python -m deploy.deploy --env tst --workspace-id dry --dry-run
+              python -m deploy.deploy --env prd --workspace-id dry --dry-run
+            displayName: rules, tests, parameter coverage
+
+  - ${{ each env in split('tst,prd', ',') }}:
+      - stage: release_${{ env }}
+        ${{ if eq(env, 'tst') }}:
+          dependsOn: validate
+        ${{ if eq(env, 'prd') }}:
+          dependsOn: release_tst
+        variables:
+          - group: finance-model-${{ env }}   # WORKSPACE_ID, DATASET_ID, SQL_SERVER, SQL_DATABASE
+        jobs:
+          - deployment: release
+            environment: finance-model-${{ env }}   # prd has an approval check
+            pool: { vmImage: ubuntu-latest }
+            strategy:
+              runOnce:
+                deploy:
+                  steps:
+                    - checkout: self
+                    - task: UsePythonVersion@0
+                      inputs: { versionSpec: '3.11' }
+                    - script: python -m pip install -r requirements-deploy.txt
+                      displayName: install
+                    - task: AzureCLI@2
+                      displayName: deploy and refresh (and contracts in tst)
+                      inputs:
+                        azureSubscription: sc-finance-model-${{ env }}
+                        scriptType: bash
+                        scriptLocation: inlineScript
+                        inlineScript: |
+                          set -euo pipefail
+                          python -m deploy.deploy --env ${{ env }} --workspace-id $(WORKSPACE_ID)
+                          if [ "${{ env }}" = "tst" ]; then
+                            # tst warehouse holds generated data, reloaded each release so the
+                            # contracts' SQL side and the model read identical rows.
+                            python -m generator.finance --out data --scale $(SCALE) --seed $(SEED)
+                            python -m deploy.load_tst_warehouse --data data --server $(SQL_SERVER) --database $(SQL_DATABASE)
+                          fi
+                          python -m deploy.refresh --workspace-id $(WORKSPACE_ID) --dataset-id $(DATASET_ID)
+                          if [ "${{ env }}" = "tst" ]; then
+                            python -m semlayer.contracts --data data --dataset-id $(DATASET_ID)
+                          fi

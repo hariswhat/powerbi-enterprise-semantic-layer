@@ -1,0 +1,20 @@
+[project]
+name = "powerbi-enterprise-semantic-layer"
+version = "0.1.0"
+description = "Certified finance semantic model in TMDL with model rules, measure contracts and CI/CD"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# TMDL fixtures are kept on one line each so the indentation is readable.
+"tests/test_rules.py" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

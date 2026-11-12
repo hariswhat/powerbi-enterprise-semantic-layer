@@ -1,0 +1,55 @@
+/// Time intelligence once, for every measure, instead of a YTD and PY copy of each (ADR-0006).
+/// Fiscal year ends 30 June. YoY % is blank for ratio measures, where a percent change of a percent misleads.
+table 'Time Calculation'
+	lineageTag: e63c4982-9950-5aa7-8dfd-825abd1a56a6
+
+	calculationGroup
+		precedence: 10
+
+		calculationItem Current = SELECTEDMEASURE()
+			ordinal: 0
+
+		calculationItem QTD = CALCULATE(SELECTEDMEASURE(), DATESQTD('Date'[Date]))
+			ordinal: 1
+
+		calculationItem YTD = CALCULATE(SELECTEDMEASURE(), DATESYTD('Date'[Date], "06-30"))
+			ordinal: 2
+
+		calculationItem PY = CALCULATE(SELECTEDMEASURE(), SAMEPERIODLASTYEAR('Date'[Date]))
+			ordinal: 3
+
+		calculationItem 'PY YTD' = CALCULATE(SELECTEDMEASURE(), DATESYTD(SAMEPERIODLASTYEAR('Date'[Date]), "06-30"))
+			ordinal: 4
+
+		calculationItem YoY =
+				VAR Cur = SELECTEDMEASURE()
+				VAR Prior = CALCULATE(SELECTEDMEASURE(), SAMEPERIODLASTYEAR('Date'[Date]))
+				RETURN
+				    IF(NOT ISBLANK(Cur) && NOT ISBLANK(Prior), Cur - Prior)
+			ordinal: 5
+
+		calculationItem 'YoY %' =
+				VAR Cur = SELECTEDMEASURE()
+				VAR Prior = CALCULATE(SELECTEDMEASURE(), SAMEPERIODLASTYEAR('Date'[Date]))
+				RETURN
+				    IF(
+				        ISSELECTEDMEASURE([Budget Variance %], [Gross Margin %]),
+				        BLANK(),
+				        DIVIDE(Cur - Prior, ABS(Prior))
+				    )
+			ordinal: 6
+			formatStringDefinition = "0.0%"
+
+	column 'Time Calculation'
+		dataType: string
+		lineageTag: a1cdde60-5509-546f-8b69-53f8dadbd4b7
+		summarizeBy: none
+		sourceColumn: Name
+		sortByColumn: Ordinal
+
+	column Ordinal
+		dataType: int64
+		isHidden
+		lineageTag: 912cc78d-88f1-5576-b8e2-9c8fbd79c006
+		summarizeBy: none
+		sourceColumn: Ordinal

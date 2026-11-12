@@ -1,0 +1,9 @@
+/// Cost center owners and controllers. Rows limited to the cost centers granted
+/// in the security view; Payroll hidden entirely (object-level security).
+role 'Cost Center Access'
+	modelPermission: read
+
+	tablePermission 'Cost Center' = [Cost Center Key] IN CALCULATETABLE(VALUES('Security Cost Center'[Cost Center Key]), 'Security Cost Center'[User Principal Name] = USERPRINCIPALNAME())
+
+	tablePermission Payroll
+		metadataPermission: none

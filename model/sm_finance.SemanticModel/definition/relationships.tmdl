@@ -1,0 +1,57 @@
+/// Star schema: every relationship many-to-one from a fact to a dimension,
+/// single direction. Security Cost Center has none; the RLS rule reads it.
+relationship f448c122-6406-5635-90f5-d32cf64145a7
+	fromColumn: 'GL Actual'.period_date_key
+	toColumn: Date.'Date Key'
+
+relationship 32325b14-31fd-5c80-a0f2-75a62ed0253d
+	fromColumn: 'GL Actual'.account_key
+	toColumn: Account.'Account Key'
+
+relationship ac09a235-1674-5f5a-850b-8e7ff5d074de
+	fromColumn: 'GL Actual'.cost_center_key
+	toColumn: 'Cost Center'.'Cost Center Key'
+
+relationship f20b2580-834b-5d76-be94-2ec190a74a21
+	fromColumn: 'GL Actual'.entity_key
+	toColumn: Entity.'Entity Key'
+
+relationship c01c2c13-ffb0-50b6-832e-2ca325a8eead
+	fromColumn: Budget.period_date_key
+	toColumn: Date.'Date Key'
+
+relationship f99c0c07-98f1-5c40-aead-a63f3433ead7
+	fromColumn: Budget.account_key
+	toColumn: Account.'Account Key'
+
+relationship 40882adf-d405-5d89-b163-8d4a11272e33
+	fromColumn: Budget.cost_center_key
+	toColumn: 'Cost Center'.'Cost Center Key'
+
+relationship 28ca49e5-95b2-53e6-959b-443b86034764
+	fromColumn: Budget.entity_key
+	toColumn: Entity.'Entity Key'
+
+relationship a50825bf-9d0e-5552-84b7-e4fa3dc04ca1
+	fromColumn: Forecast.period_date_key
+	toColumn: Date.'Date Key'
+
+relationship 286bc8c8-002a-5194-a2b7-129e0885bd67
+	fromColumn: Forecast.account_key
+	toColumn: Account.'Account Key'
+
+relationship 39716265-1f08-5d9f-8081-38bd6a211996
+	fromColumn: Forecast.cost_center_key
+	toColumn: 'Cost Center'.'Cost Center Key'
+
+relationship c4582075-e672-5595-b6d6-855d5e4c1500
+	fromColumn: Forecast.entity_key
+	toColumn: Entity.'Entity Key'
+
+relationship 963945c9-7c6d-592d-b4fe-a7aefedaa0ad
+	fromColumn: Payroll.period_date_key
+	toColumn: Date.'Date Key'
+
+relationship 64d992b2-0ba3-53f4-bb63-08d60769603c
+	fromColumn: Payroll.cost_center_key
+	toColumn: 'Cost Center'.'Cost Center Key'

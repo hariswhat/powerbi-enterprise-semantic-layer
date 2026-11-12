@@ -1,0 +1,64 @@
+/// Monthly forecast versions in USD at the budget rate.
+table Forecast
+	lineageTag: a2c01d9c-c866-5a86-a0a0-035f8111c528
+
+	column period_date_key
+		dataType: int64
+		isHidden
+		lineageTag: 3432bef6-84cd-5622-8635-8f0f53dcc9f2
+		summarizeBy: none
+		sourceColumn: period_date_key
+
+	column account_key
+		dataType: int64
+		isHidden
+		lineageTag: 0ebd30de-5019-536c-815a-a0aa3e44ef90
+		summarizeBy: none
+		sourceColumn: account_key
+
+	column cost_center_key
+		dataType: int64
+		isHidden
+		lineageTag: 439922dc-091a-53e7-abb8-6aecd4d483eb
+		summarizeBy: none
+		sourceColumn: cost_center_key
+
+	column entity_key
+		dataType: int64
+		isHidden
+		lineageTag: 3cb7d627-a1de-5b66-85eb-700616d3589d
+		summarizeBy: none
+		sourceColumn: entity_key
+
+	column forecast_version_sort
+		dataType: int64
+		isHidden
+		lineageTag: 60d70901-4806-5d26-b2ec-245c06fb3230
+		summarizeBy: none
+		sourceColumn: forecast_version_sort
+
+	column amount_usd
+		dataType: decimal
+		isHidden
+		formatString: #,0
+		lineageTag: 08b181ef-1d96-5387-907a-23687de20da3
+		summarizeBy: sum
+		sourceColumn: amount_usd
+
+	/// 3+9, 6+6, 9+3: months of actuals plus months of forecast.
+	column 'Forecast Version'
+		dataType: string
+		lineageTag: 21760529-1f41-5440-a3cc-965375487687
+		summarizeBy: none
+		sourceColumn: forecast_version
+		sortByColumn: forecast_version_sort
+
+	partition Forecast = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    View = Source{[Schema = "fin", Item = "vw_fact_forecast"]}[Data],
+				    Kept = Table.SelectColumns(View, {"period_date_key", "forecast_version", "forecast_version_sort", "account_key", "cost_center_key", "entity_key", "amount_usd"})
+				in
+				    Kept

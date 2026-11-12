@@ -1,0 +1,30 @@
+name: pnl_by_year
+description: Revenue, gross margin and operating income by fiscal year, built from account classes.
+measures: [Revenue, Gross Margin, Gross Margin %, Operating Income]
+keys: ["Date[Fiscal Year]"]
+dax: |
+  EVALUATE
+  SUMMARIZECOLUMNS(
+      'Date'[Fiscal Year],
+      "Revenue", [Revenue],
+      "Gross Margin", [Gross Margin],
+      "Gross Margin %", [Gross Margin %],
+      "Operating Income", [Operating Income]
+  )
+sql: |
+  WITH x AS (
+      SELECT d.fiscal_year_label AS fy, a.account_class AS cls, SUM(f.amount_usd) AS amt
+      FROM fin.vw_fact_gl_actual AS f
+      JOIN fin.vw_dim_date AS d ON d.date_key = f.period_date_key
+      JOIN fin.vw_dim_account AS a ON a.account_key = f.account_key
+      GROUP BY 1, 2
+  )
+  SELECT
+        fy AS "Date[Fiscal Year]"
+      , SUM(CASE WHEN cls = 'Revenue' THEN amt END) AS "[Revenue]"
+      , SUM(CASE WHEN cls IN ('Revenue', 'COGS') THEN amt END) AS "[Gross Margin]"
+      , SUM(CASE WHEN cls IN ('Revenue', 'COGS') THEN amt END)
+          / NULLIF(SUM(CASE WHEN cls = 'Revenue' THEN amt END), 0) AS "[Gross Margin %]"
+      , SUM(CASE WHEN cls IN ('Revenue', 'COGS', 'Opex') THEN amt END) AS "[Operating Income]"
+  FROM x
+  GROUP BY 1

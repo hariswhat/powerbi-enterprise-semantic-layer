@@ -1,0 +1,48 @@
+/// Headcount and payroll cost by cost center, grade and month. Hidden by object-level security from the Cost Center Access role (ADR-0005).
+table Payroll
+	lineageTag: 5a3905af-bb85-5268-901c-cafe4968224a
+
+	column period_date_key
+		dataType: int64
+		isHidden
+		lineageTag: bed0a35d-c427-540a-9923-97ed3c66ade2
+		summarizeBy: none
+		sourceColumn: period_date_key
+
+	column cost_center_key
+		dataType: int64
+		isHidden
+		lineageTag: c708b46e-5fc6-5505-8cbc-d6ecb6a328cb
+		summarizeBy: none
+		sourceColumn: cost_center_key
+
+	column headcount
+		dataType: int64
+		isHidden
+		lineageTag: 0b506b92-9f6c-52bd-a369-19052165273c
+		summarizeBy: none
+		sourceColumn: headcount
+
+	column payroll_cost_usd
+		dataType: decimal
+		isHidden
+		formatString: #,0
+		lineageTag: dc4ae732-8f87-5435-9b6e-3304c6cb6401
+		summarizeBy: sum
+		sourceColumn: payroll_cost_usd
+
+	column Grade
+		dataType: string
+		lineageTag: 5e721386-d2a1-5f7d-9433-9992cbd24cb9
+		summarizeBy: none
+		sourceColumn: grade
+
+	partition Payroll = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    View = Source{[Schema = "fin", Item = "vw_fact_payroll"]}[Data],
+				    Kept = Table.SelectColumns(View, {"period_date_key", "cost_center_key", "grade", "headcount", "payroll_cost_usd"})
+				in
+				    Kept

@@ -1,0 +1,18 @@
+/// Server and database of the warehouse, set per environment at deployment.
+expression SqlServer = "devsqlfin000000.database.windows.net" meta [IsParameterQuery = true, Type = "Text", IsParameterQueryRequired = true]
+	lineageTag: 256ff682-3f1b-591c-9601-7a57939e688a
+	queryGroup: Parameters
+
+expression SqlDatabase = "finance_dw" meta [IsParameterQuery = true, Type = "Text", IsParameterQueryRequired = true]
+	lineageTag: f172065a-2fd2-5fd1-8c9e-f24bf6654564
+	queryGroup: Parameters
+
+/// Incremental refresh bounds. The service replaces these per partition; the
+/// values here only limit what Power BI Desktop loads while authoring.
+expression RangeStart = #datetime(2026, 4, 1, 0, 0, 0) meta [IsParameterQuery = true, Type = "DateTime", IsParameterQueryRequired = true]
+	lineageTag: 407093f5-77fa-568b-807b-cb469448ae5d
+	queryGroup: Parameters
+
+expression RangeEnd = #datetime(2026, 7, 1, 0, 0, 0) meta [IsParameterQuery = true, Type = "DateTime", IsParameterQueryRequired = true]
+	lineageTag: 5d410654-db52-55f2-8450-99980d7ea3af
+	queryGroup: Parameters

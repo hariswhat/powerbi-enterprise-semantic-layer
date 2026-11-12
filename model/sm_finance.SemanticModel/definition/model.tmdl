@@ -1,0 +1,28 @@
+/// sm_finance: the certified finance model. Import mode over the fin.* views
+/// (ADR-0001). Reports connect live to it; none carries its own data.
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	discourageImplicitMeasures
+	sourceQueryCulture: en-US
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+	annotation PBI_QueryOrder = ["SqlServer","SqlDatabase","RangeStart","RangeEnd"]
+
+ref table Date
+ref table Account
+ref table 'Cost Center'
+ref table Entity
+ref table 'GL Actual'
+ref table Budget
+ref table Forecast
+ref table Payroll
+ref table 'Security Cost Center'
+ref table Measures
+ref table 'Time Calculation'
+
+ref role 'Cost Center Access'
+ref role 'Cost Center Access with Payroll'
+ref role 'Finance Full Access'

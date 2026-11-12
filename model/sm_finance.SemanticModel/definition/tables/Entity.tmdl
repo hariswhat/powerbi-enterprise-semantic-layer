@@ -1,0 +1,45 @@
+/// Legal entities. Amounts in the model are USD; local currency is shown for reference only.
+table Entity
+	lineageTag: 13d1ab63-0c40-5969-8165-10138d2d9fad
+
+	column 'Entity Key'
+		dataType: int64
+		isHidden
+		lineageTag: 2405b81a-cba1-571c-a603-8a63a1c1b5de
+		summarizeBy: none
+		sourceColumn: entity_key
+
+	column 'Entity Code'
+		dataType: string
+		lineageTag: eb6fe13e-c10f-54d5-b316-9d5943cb13d9
+		summarizeBy: none
+		sourceColumn: entity_code
+
+	column Entity
+		dataType: string
+		lineageTag: 1e3fd290-acac-53d9-b8d0-4d23cc2966ca
+		summarizeBy: none
+		sourceColumn: entity_name
+
+	column Country
+		dataType: string
+		dataCategory: Country
+		lineageTag: 0ee08851-b1a7-57f1-b776-eb7b48d9f8ae
+		summarizeBy: none
+		sourceColumn: country
+
+	column 'Local Currency'
+		dataType: string
+		lineageTag: 976b54d9-9738-5798-a2e2-a927e01d3006
+		summarizeBy: none
+		sourceColumn: local_currency
+
+	partition Entity = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    View = Source{[Schema = "fin", Item = "vw_dim_entity"]}[Data],
+				    Kept = Table.SelectColumns(View, {"entity_key", "entity_code", "entity_name", "country", "local_currency"})
+				in
+				    Kept

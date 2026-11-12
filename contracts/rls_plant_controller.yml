@@ -1,0 +1,24 @@
+name: rls_plant_controller
+description: A department-level grant sees only that department's cost centers. Run with the identity impersonated; the query asks for every division and must get one back.
+measures: [Actual]
+keys: ["Cost Center[Division]", "Cost Center[Department]"]
+impersonate: plant.controller@northgate.example
+role: Cost Center Access
+dax: |
+  EVALUATE
+  SUMMARIZECOLUMNS(
+      'Cost Center'[Division],
+      'Cost Center'[Department],
+      "Actual", [Actual]
+  )
+sql: |
+  SELECT
+        cc.division AS "Cost Center[Division]"
+      , cc.department AS "Cost Center[Department]"
+      , SUM(f.amount_usd) AS "[Actual]"
+  FROM fin.vw_fact_gl_actual AS f
+  JOIN fin.vw_dim_cost_center AS cc ON cc.cost_center_key = f.cost_center_key
+  JOIN fin.vw_security_cost_center AS s
+    ON s.cost_center_key = f.cost_center_key
+   AND s.user_principal_name = 'plant.controller@northgate.example'
+  GROUP BY 1, 2

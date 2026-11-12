@@ -1,0 +1,49 @@
+/// Monthly budget in USD at the budget rate.
+table Budget
+	lineageTag: 467f9a26-04e0-5828-ab67-931679f2f3bc
+
+	column period_date_key
+		dataType: int64
+		isHidden
+		lineageTag: 6675d9ae-d8b6-5737-99b0-56df5e294df3
+		summarizeBy: none
+		sourceColumn: period_date_key
+
+	column account_key
+		dataType: int64
+		isHidden
+		lineageTag: 13c8d563-e9ac-5288-b322-6fb345c27155
+		summarizeBy: none
+		sourceColumn: account_key
+
+	column cost_center_key
+		dataType: int64
+		isHidden
+		lineageTag: 1c72e88e-d87f-559b-b883-f21b35fe53cf
+		summarizeBy: none
+		sourceColumn: cost_center_key
+
+	column entity_key
+		dataType: int64
+		isHidden
+		lineageTag: baef8208-8176-5e1f-a2b7-c93add0a175c
+		summarizeBy: none
+		sourceColumn: entity_key
+
+	column amount_usd
+		dataType: decimal
+		isHidden
+		formatString: #,0
+		lineageTag: 6943f6f0-99da-52d0-8048-8a7c5176b462
+		summarizeBy: sum
+		sourceColumn: amount_usd
+
+	partition Budget = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    View = Source{[Schema = "fin", Item = "vw_fact_budget"]}[Data],
+				    Kept = Table.SelectColumns(View, {"period_date_key", "account_key", "cost_center_key", "entity_key", "amount_usd"})
+				in
+				    Kept

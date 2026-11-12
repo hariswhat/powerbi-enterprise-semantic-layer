@@ -1,0 +1,89 @@
+/// Journal lines summed to account x cost center x entity x period by the engine. Partitioned by posting date (ADR-0004).
+table 'GL Actual'
+	lineageTag: b3fbc0dd-9da0-5935-bcc9-f6756bd163dc
+
+	column period_date_key
+		dataType: int64
+		isHidden
+		lineageTag: 38df3d76-ae11-572f-bd9c-709235509280
+		summarizeBy: none
+		sourceColumn: period_date_key
+
+	column account_key
+		dataType: int64
+		isHidden
+		lineageTag: 3c72f51f-ce22-56ba-80e2-79d091604521
+		summarizeBy: none
+		sourceColumn: account_key
+
+	column cost_center_key
+		dataType: int64
+		isHidden
+		lineageTag: 94e21118-f6f5-5fe2-ae06-db5a582fbf91
+		summarizeBy: none
+		sourceColumn: cost_center_key
+
+	column entity_key
+		dataType: int64
+		isHidden
+		lineageTag: db617e7d-f87e-5221-9510-fcd0daa658ce
+		summarizeBy: none
+		sourceColumn: entity_key
+
+	column is_reversal
+		dataType: int64
+		isHidden
+		lineageTag: 58bc3889-92ff-5b98-ba5f-3c3a026094db
+		summarizeBy: none
+		sourceColumn: is_reversal
+
+	column amount_usd
+		dataType: decimal
+		isHidden
+		formatString: #,0
+		lineageTag: 459b1daf-20b2-5ac2-a59a-6347443d7aa2
+		summarizeBy: sum
+		sourceColumn: amount_usd
+
+	column amount_usd_budget_rate
+		dataType: decimal
+		isHidden
+		formatString: #,0
+		lineageTag: 4d1ae37f-8112-5e4d-9596-183a73bf7552
+		summarizeBy: sum
+		sourceColumn: amount_usd_budget_rate
+
+	/// Drives incremental refresh only. Reporting uses the fiscal period.
+	column posting_date
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		lineageTag: 978a22a0-535d-595c-a398-f8ff12ba5e5c
+		summarizeBy: none
+		sourceColumn: posting_date
+
+	partition 'GL Actual' = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    View = Source{[Schema = "fin", Item = "vw_fact_gl_actual"]}[Data],
+				    Kept = Table.SelectColumns(View, {"period_date_key", "posting_date", "account_key", "cost_center_key", "entity_key", "is_reversal", "amount_usd", "amount_usd_budget_rate"}),
+				    InWindow = Table.SelectRows(Kept, each [posting_date] >= RangeStart and [posting_date] < RangeEnd)
+				in
+				    InWindow
+
+	refreshPolicy
+		policyType: basic
+		rollingWindowGranularity: year
+		rollingWindowPeriods: 3
+		incrementalGranularity: month
+		incrementalPeriods: 3
+		sourceExpression =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    View = Source{[Schema = "fin", Item = "vw_fact_gl_actual"]}[Data],
+				    Kept = Table.SelectColumns(View, {"period_date_key", "posting_date", "account_key", "cost_center_key", "entity_key", "is_reversal", "amount_usd", "amount_usd_budget_rate"}),
+				    InWindow = Table.SelectRows(Kept, each [posting_date] >= RangeStart and [posting_date] < RangeEnd)
+				in
+				    InWindow

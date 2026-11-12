@@ -1,0 +1,36 @@
+name: payroll_by_division
+description: Headcount is taken at the last period with payroll data in the filter (not summed over months); payroll cost is summed.
+measures: [Headcount, Payroll Cost, Cost per Head]
+keys: ["Date[Fiscal Year]", "Cost Center[Division]"]
+dax: |
+  EVALUATE
+  SUMMARIZECOLUMNS(
+      'Date'[Fiscal Year],
+      'Cost Center'[Division],
+      "Headcount", [Headcount],
+      "Payroll Cost", [Payroll Cost],
+      "Cost per Head", [Cost per Head]
+  )
+sql: |
+  WITH p AS (
+      SELECT d.fiscal_year_label AS fy, cc.division AS division, p.period_date_key AS pk
+           , p.headcount, p.payroll_cost_usd
+      FROM fin.vw_fact_payroll AS p
+      JOIN fin.vw_dim_date AS d ON d.date_key = p.period_date_key
+      JOIN fin.vw_dim_cost_center AS cc ON cc.cost_center_key = p.cost_center_key
+  ), last_period AS (
+      SELECT fy, division, MAX(pk) AS pk FROM p GROUP BY 1, 2
+  ), hc AS (
+      SELECT p.fy, p.division, SUM(p.headcount) AS headcount
+      FROM p JOIN last_period AS l ON l.fy = p.fy AND l.division = p.division AND l.pk = p.pk
+      GROUP BY 1, 2
+  ), cost AS (
+      SELECT fy, division, SUM(payroll_cost_usd) AS cost FROM p GROUP BY 1, 2
+  )
+  SELECT
+        c.fy AS "Date[Fiscal Year]"
+      , c.division AS "Cost Center[Division]"
+      , h.headcount AS "[Headcount]"
+      , c.cost AS "[Payroll Cost]"
+      , c.cost / NULLIF(h.headcount, 0) AS "[Cost per Head]"
+  FROM cost AS c JOIN hc AS h ON h.fy = c.fy AND h.division = c.division

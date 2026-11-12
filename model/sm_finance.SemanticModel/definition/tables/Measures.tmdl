@@ -1,0 +1,113 @@
+/// Every measure lives here so reports never sum a raw column (discourageImplicitMeasures).
+table Measures
+	lineageTag: 6a51c4df-b403-5877-9860-701ffc99121b
+
+	/// GL actuals in USD at each month's average rate. Income positive, expense negative.
+	measure Actual = SUM('GL Actual'[amount_usd])
+		formatString: #,0
+		displayFolder: Actuals
+		lineageTag: 73d1fdb8-d14f-5bce-bbc0-b98945df6d8a
+
+	/// Actuals converted at the fiscal year's budget rate: the constant-currency view used against budget.
+	measure 'Actual at Budget Rate' = SUM('GL Actual'[amount_usd_budget_rate])
+		formatString: #,0
+		displayFolder: Actuals
+		lineageTag: 052b4972-9823-529a-912b-766214f219c7
+
+	/// Effect of exchange rates moving away from the budget rate: Actual minus Actual at Budget Rate.
+	measure 'FX Impact' = [Actual] - [Actual at Budget Rate]
+		formatString: #,0
+		displayFolder: Actuals
+		lineageTag: d6c36a88-d247-5d71-86aa-a3b2562ac2a5
+
+	/// Budget in USD at the budget rate.
+	measure Budget = SUM(Budget[amount_usd])
+		formatString: #,0
+		displayFolder: Budget
+		lineageTag: 610a8568-4d85-5149-91d1-2d9ffb1e8562
+
+	/// Actual at Budget Rate minus Budget. Positive is favourable on every line because amounts are signed.
+	measure 'Budget Variance' = [Actual at Budget Rate] - [Budget]
+		formatString: #,0
+		displayFolder: Budget
+		lineageTag: 8bbb3045-1a52-5a58-974c-531043a5e2f5
+
+	/// Budget Variance over the absolute Budget.
+	measure 'Budget Variance %' = DIVIDE([Budget Variance], ABS([Budget]))
+		formatString: 0.0%
+		displayFolder: Budget
+		lineageTag: d2a8271b-d8b9-5ef6-8563-3d9bbb3d6361
+
+	/// Forecast in USD at the budget rate. The selected version if one is filtered, otherwise the latest version in the model.
+	measure Forecast =
+			VAR LatestVersion =
+			    CALCULATE(MAX(Forecast[forecast_version_sort]), REMOVEFILTERS())
+			RETURN
+			    IF(
+			        ISFILTERED(Forecast[Forecast Version]),
+			        SUM(Forecast[amount_usd]),
+			        CALCULATE(SUM(Forecast[amount_usd]), Forecast[forecast_version_sort] = LatestVersion)
+			    )
+		formatString: #,0
+		displayFolder: Forecast
+		lineageTag: 2708f548-8417-589b-addf-e8704e0edd0b
+
+	/// Actual at Budget Rate minus Forecast.
+	measure 'Forecast Variance' = [Actual at Budget Rate] - [Forecast]
+		formatString: #,0
+		displayFolder: Forecast
+		lineageTag: 63ab64d9-c604-516e-91fe-6773811a005e
+
+	/// Actual on Revenue accounts.
+	measure Revenue = CALCULATE([Actual], Account[Account Class] = "Revenue")
+		formatString: #,0
+		displayFolder: P&L
+		lineageTag: e1710e1e-a060-514b-b4f7-e5b09026c058
+
+	/// Actual on Revenue and COGS accounts. COGS is negative, so this is revenue less cost of goods.
+	measure 'Gross Margin' = CALCULATE([Actual], Account[Account Class] IN {"Revenue", "COGS"})
+		formatString: #,0
+		displayFolder: P&L
+		lineageTag: 772b3952-d9a0-5d4f-b309-36d1cae801f6
+
+	/// Gross Margin over Revenue.
+	measure 'Gross Margin %' = DIVIDE([Gross Margin], [Revenue])
+		formatString: 0.0%
+		displayFolder: P&L
+		lineageTag: 77f6dfbe-429c-5f69-bd6e-752efad050f6
+
+	/// Actual on Revenue, COGS and Opex accounts.
+	measure 'Operating Income' = CALCULATE([Actual], Account[Account Class] IN {"Revenue", "COGS", "Opex"})
+		formatString: #,0
+		displayFolder: P&L
+		lineageTag: cd63747d-af51-5499-bdc4-9354c564deb2
+
+	/// Headcount at the last period in the current filter that has payroll data. Not summed over time.
+	measure Headcount =
+			CALCULATE(
+			    SUM(Payroll[headcount]),
+			    LASTNONBLANK('Date'[Date], CALCULATE(SUM(Payroll[headcount])))
+			)
+		formatString: #,0
+		displayFolder: Payroll
+		lineageTag: bfa7efc9-9907-5ab9-b773-f931fbc1bc47
+
+	/// Payroll cost in USD, summed over the periods in the filter.
+	measure 'Payroll Cost' = SUM(Payroll[payroll_cost_usd])
+		formatString: #,0
+		displayFolder: Payroll
+		lineageTag: 1cf9e246-e9fa-5a3a-824c-c2c18eaf6bc0
+
+	/// Payroll Cost over Headcount at the last period: for a full year, annual cost per head at year end.
+	measure 'Cost per Head' = DIVIDE([Payroll Cost], [Headcount])
+		formatString: #,0
+		displayFolder: Payroll
+		lineageTag: aed4e6e6-71d1-517d-9c90-c30576ffa146
+
+	partition Measures = m
+		mode: import
+		source =
+				let
+				    Source = #table(type table [Measures = text], {})
+				in
+				    Source

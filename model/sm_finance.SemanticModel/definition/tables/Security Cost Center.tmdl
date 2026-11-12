@@ -1,0 +1,28 @@
+/// One row per user per cost center they may see, expanded from grants in the source view. No relationships; read only by the RLS rule.
+table 'Security Cost Center'
+	lineageTag: 47ae0584-2d45-5205-b74b-2a359aeae267
+	isHidden
+
+	column 'User Principal Name'
+		dataType: string
+		isHidden
+		lineageTag: 88fd034f-b767-5ce5-bcda-0e3c7c141c98
+		summarizeBy: none
+		sourceColumn: user_principal_name
+
+	column 'Cost Center Key'
+		dataType: int64
+		isHidden
+		lineageTag: 2b3e0cdf-aba7-552f-b029-d93c311e5e12
+		summarizeBy: none
+		sourceColumn: cost_center_key
+
+	partition 'Security Cost Center' = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    View = Source{[Schema = "fin", Item = "vw_security_cost_center"]}[Data],
+				    Kept = Table.SelectColumns(View, {"user_principal_name", "cost_center_key"})
+				in
+				    Kept

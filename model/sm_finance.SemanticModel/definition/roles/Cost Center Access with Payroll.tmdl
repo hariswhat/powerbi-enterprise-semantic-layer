@@ -1,0 +1,7 @@
+/// The same rows as Cost Center Access, with Payroll visible. A separate role
+/// because RLS and OLS cannot be combined across roles: a user in both
+/// Cost Center Access and an unrestricted role would get an error (ADR-0005).
+role 'Cost Center Access with Payroll'
+	modelPermission: read
+
+	tablePermission 'Cost Center' = [Cost Center Key] IN CALCULATETABLE(VALUES('Security Cost Center'[Cost Center Key]), 'Security Cost Center'[User Principal Name] = USERPRINCIPALNAME())
