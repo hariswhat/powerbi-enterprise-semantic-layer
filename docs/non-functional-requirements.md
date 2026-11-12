@@ -13,14 +13,14 @@ production load behind this repo; sizes come from the generator at full scale
 | Every measure has a contract | Test fails otherwise | `test_every_measure_has_a_contract` |
 | Sign convention is the same everywhere | Applied once in the views | `test_ledger_sign_is_flipped_for_reporting`, ADR-0003 |
 | Variance to budget excludes exchange rates | Actual at budget rate vs budget | `test_fx_impact_identity_and_usd_entity` |
-| Late journals appear the next morning | Refresh policy on posting date | `test_incremental_refresh_is_keyed_on_posting_date` |
+| Late journals appear the next morning | Nightly scheduled refresh in prd (set by the release); policy keyed on posting date | `test_incremental_refresh_is_keyed_on_posting_date`, `pipelines/release.yml` |
 | Headcount is not summed over months | Last non-blank period | `test_headcount_is_not_summed_over_months` |
 
 ## Freshness
 
 | Path | Requirement | Design |
 |---|---|---|
-| Ledger to report | Next morning | Nightly refresh after the warehouse load; the last 3 months of posting dates reload |
+| Ledger to report | Next morning | Scheduled refresh at 06:30 ET in prd; the last 3 months of posting dates reload |
 | Access change | Next morning | Grants are data; the security table refreshes with the model |
 | Model change | Same day after approval | Release pipeline, tst then prd |
 
@@ -38,7 +38,8 @@ production load behind this repo; sizes come from the generator at full scale
   at four levels. Object-level security hides `Payroll` from cost center
   owners. ADR-0005.
 - Each user in exactly one role; roles mapped to Entra groups in the service.
-- The model reads the warehouse with an Entra identity; no SQL passwords.
+- The model's warehouse credential is OAuth2 or a service principal, set once
+  per environment (runbook section 6); the release itself uses Entra auth.
 - Build permission on the model for report authors only; viewers get the app.
 
 ## Operability

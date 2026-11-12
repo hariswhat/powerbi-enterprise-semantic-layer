@@ -17,7 +17,9 @@ owners must not see it, some controllers must.
   against the flattened hierarchy to one row per user per cost center.
 - One RLS filter, on `Cost Center`:
   `[Cost Center Key] IN CALCULATETABLE(VALUES('Security Cost Center'[Cost Center Key]), 'Security Cost Center'[User Principal Name] = USERPRINCIPALNAME())`.
-  The security table has no relationships.
+  The security table has no relationships, and its own filter
+  (`[User Principal Name] = USERPRINCIPALNAME()`) stops a restricted user from
+  querying other people's grants.
 - `Payroll` is hidden with object-level security in `Cost Center Access`.
   `Cost Center Access with Payroll` has the same row filter and no OLS.
   `Finance Full Access` has neither.
@@ -47,8 +49,12 @@ and an OLS-only role gets an error. Hence two complete roles instead.
   deployment.
 - Each user should be in exactly one role. Membership is managed through Entra
   groups mapped to roles in the service (runbook section 4).
-- The RLS contract runs a query impersonating a department controller and
-  checks they get one department back (`contracts/rls_plant_controller.yml`).
+- The RLS contract (`contracts/rls_plant_controller.yml`) is run by a person
+  as a member of the role: executeQueries resolves the impersonated user's real
+  role membership, and the release's service principal cannot impersonate on
+  an RLS model. Its SQL side is tested in CI.
+- Nothing in the repo can see role membership, so "one role per user" is a
+  convention kept by the Entra groups (runbook section 4).
 - The Unknown cost center is visible only to ALL grants, so rows that fail to
   map to a cost center are seen by corporate finance, who fix the mapping.
 - Measures that read `Payroll` (Headcount, Payroll Cost, Cost per Head) are not

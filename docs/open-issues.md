@@ -23,3 +23,11 @@ Known gaps, in priority order.
 7. **`deploy/load_tst_warehouse.py` is untested against a server.** Row-by-row
    inserts with fast_executemany are fine at the contract scale (0.02); a
    larger tst load would want bulk copy.
+8. **Credentials and role membership are manual** (runbook sections 4 and 6).
+   Both have REST APIs; the release could set them, at the cost of the
+   release identity holding more rights than it needs today.
+9. **The RLS contract is manual.** It needs an identity that is a member of
+   the role, which the release's service principal cannot impersonate.
+10. **Nothing checks that role groups are disjoint.** A user in both Cost
+    Center Access and Cost Center Access with Payroll gets an error; a
+    nightly check against Entra could catch it first.

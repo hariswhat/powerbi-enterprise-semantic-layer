@@ -19,7 +19,8 @@ right numbers. DAX cannot be evaluated outside the Analysis Services engine.
   identities. The release pipeline deploys to tst, reloads the tst warehouse
   from the generator with the same seed, refreshes, and compares the DAX
   results from the executeQueries API with the SQL side. A difference stops
-  the release before prd.
+  the release before prd. The row-level security contract is the exception:
+  a person runs it as a member of the role (ADR-0005).
 - Deployment uses `fabric-cicd` with a parameter file for the warehouse server
   per environment.
 

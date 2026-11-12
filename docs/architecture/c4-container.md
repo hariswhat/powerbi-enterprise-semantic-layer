@@ -58,8 +58,9 @@ relationships. All fourteen relationships are many-to-one and single direction
 1. Pull request: ruff, sqlfluff, `python -m semlayer.check`, pytest (views on
    DuckDB, contract SQL side, rules, TMDL structure).
 2. Merge to `main` starts `pipelines/release.yml`.
-3. tst: deploy with fabric-cicd; regenerate the warehouse data with the fixed
-   seed and load it; enhanced refresh; run every contract through
-   executeQueries and compare with the SQL side.
-4. prd, after approval: deploy and refresh. No contracts against production
-   data.
+3. tst: apply `sql/warehouse` and `sql/views`; deploy with fabric-cicd;
+   regenerate the warehouse data with the fixed seed and load it; enhanced
+   refresh with the effective date pinned to the end of the data; run every
+   automated contract through executeQueries and compare with the SQL side.
+4. prd, after approval: apply `sql/views`, deploy, refresh, set the nightly
+   refresh schedule. No contracts against production data.

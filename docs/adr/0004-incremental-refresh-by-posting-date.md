@@ -7,9 +7,9 @@ Date: 2026-11-11
 
 GL actuals are by far the largest table: at the generator's full scale, 3.70M
 lines over three fiscal years (`make data SCALE=1.0`). Finance reports by fiscal
-period, but journals keep arriving after a period has closed: about 3% of
-journals in the generated data are posted up to 45 days after period end, and
-some are reversals of earlier journals.
+period, but journals keep arriving after a period has closed: 21,959 of the
+739,338 generated journals (3.0%) are posted after their period ended, up to 45
+days late, and some are reversals of earlier journals.
 
 ## Decision
 
@@ -39,10 +39,15 @@ view stays available for reconciliation outside the model.
 ## Consequences
 
 - `posting_date` has to be imported (hidden) even though no report uses it; it
-  is the second-largest GL column in the size report.
-- The window (3 months) is longer than the latest posting delay in the data,
-  which covers ERPs that let adjustments be backdated to the period end.
-  `tests/test_model_size.py` checks both the key column and the window.
+  is the third-largest GL column in the size report, after the two amounts.
+- `posting_date` is a date and the refresh parameters are datetimes, so the
+  filter compares against `Date.From(RangeStart)`; written that way it still
+  folds to SQL. `tests/test_model_size.py` checks the policy is keyed on
+  posting date.
+- The rolling window counts from the refresh date. tst holds generated data
+  ending 2026-06-30, so the release pins the refresh's effective date there;
+  without that, the oldest fiscal year would drop out of tst as time passes
+  while the contracts still expect it.
 - The rule `INCREMENTAL_FILTER` requires `>= RangeStart` and `< RangeEnd` in
   both the policy and the partition, so a boundary row is never loaded twice.
 - After a deployment that changes `GL Actual`'s columns, partitions outside the

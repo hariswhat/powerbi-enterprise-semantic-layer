@@ -49,12 +49,14 @@ Forecast =
   tests run either way.
 - Tabs for indentation, as the serializer writes them.
 - A rule that has to be broken on purpose gets
-  `annotation rules_exempt = <RULE_ID>` on the object and a line in the pull
-  request saying why.
+  `annotation rules_exempt = <RULE_ID>` on the object the rule reports (a
+  measure, column, relationship, role or table permission) and a line in the
+  pull request saying why.
 
 ## SQL (source views)
 
-- Keywords upper case, identifiers snake_case, leading commas.
+- Keywords upper case, identifiers snake_case, leading commas (a convention;
+  `.sqlfluff` does not enforce comma position).
 - Written in the subset of T-SQL that DuckDB also runs (see
   `sql/views/000_schema.sql`), so `tests/test_views.py` runs the real files.
 - sqlfluff with the `tsql` dialect; config in `.sqlfluff`.

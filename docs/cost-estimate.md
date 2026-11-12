@@ -37,7 +37,7 @@ few hundred, F64 is.
 ## Model size input
 
 `python -m semlayer.model_size --data data` at full generator scale estimates
-29.6M bytes for the imported columns (the formula is in the module; it ignores
+29.9M bytes for the imported columns (the formula is in the module; it ignores
 run-length encoding, so it ranks columns rather than predicting the size the
 service reports). Import refresh needs room for a second copy of the
 partitions being refreshed. Measure the real size in tst after a refresh

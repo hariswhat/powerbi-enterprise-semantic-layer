@@ -24,12 +24,13 @@ a contract that pins its numbers. [ADR-0001]
 | `Entity` | Dimension | USD, CAD, MXN entities |
 | `GL Actual` | Fact, incremental refresh | Summary of the ledger, keyed on posting date for refresh [ADR-0004] |
 | `Budget`, `Forecast` | Facts | Month grain, USD at budget rate; three forecast versions |
-| `Payroll` | Fact, hidden by OLS for cost center owners | Headcount is semi-additive [ADR-0005] |
+| `Payroll` | Fact, hidden by OLS for cost center owners [ADR-0005] | Cost reported as a positive number; headcount is semi-additive [ADR-0006] |
 | `Measures` | 15 measures in 5 display folders | Actual, Actual at Budget Rate, FX Impact, Budget, Budget Variance, Budget Variance %, Forecast, Forecast Variance, Revenue, Gross Margin, Gross Margin %, Operating Income, Headcount, Payroll Cost, Cost per Head |
 | `Time Calculation` | Calculation group | Current, QTD, YTD, PY, PY YTD, YoY, YoY % [ADR-0006] |
 | `Security Cost Center` | Hidden, no relationships | Read only by the RLS rule |
 
-Amounts are signed once, in the views: income positive, expense negative. So
+Ledger amounts are signed once, in the views: income positive, expense
+negative (payroll, a separate fact, is a positive cost). So
 gross margin is Revenue plus COGS, and a positive variance is favourable on
 every line. Variance to budget uses actuals at the budget rate, so exchange
 rates never show up as performance; `FX Impact` shows them separately.
@@ -51,21 +52,25 @@ rates never show up as performance; `FX Impact` shows them separately.
    generated data and the tests hold it to finance identities (YTD at period
    12 equals the year, variance % is variance over budget, row-level security
    returns a subset). Every measure and calculation item must appear in a
-   contract.
-4. **tst before prd.** The release deploys to tst, reloads the tst warehouse
-   from the generator with the same seed, refreshes, and compares every
+   contract. The contract SQL avoids DuckDB-only syntax, so it also runs on
+   the warehouse when a number is questioned.
+4. **tst before prd.** The release applies the views, deploys to tst, reloads
+   the tst warehouse from the generator with the same seed, refreshes with the
+   policy's date pinned to the end of the data, and compares each automated
    contract's DAX result (executeQueries API) with its SQL. Any difference
-   stops the release. [ADR-0007]
+   stops the release. The row-level security contract is run by a person,
+   because the release's service principal cannot impersonate users on an RLS
+   model. [ADR-0007]
 
 ## Measured here
 
 | What | Value | Command |
 |---|---|---|
-| Generated ledger at full scale (3 fiscal years) | 3,697,571 lines in 739,338 journals; 21,755 posted after period end; 7,278 reversals | `make data SCALE=1.0` (about 20 s); counts in `data/_counts.json` |
+| Generated ledger at full scale (3 fiscal years) | 3,697,571 lines in 739,338 journals; 21,959 journals posted after their period ended; 7,278 reversals | `make data SCALE=1.0` (about 20 s); counts in `data/_counts.json` |
 | GL rows the model imports | 1,159,954 (3.19x fewer than lines) | `python -m semlayer.model_size --data data` |
-| Estimated size of GL Actual's imported columns | 26.1M bytes from the summary view, 54.9M at line grain; whole model 29.6M | same; the estimate ignores run-length encoding, so it ranks columns rather than predicting the service's number |
+| Estimated size of GL Actual's imported columns | 26.4M bytes from the summary view, 56.5M at line grain; whole model 29.9M | same; the estimate ignores run-length encoding, so it ranks columns rather than predicting the service's number |
 | Largest imported columns | `GL Actual` `amount_usd` and `amount_usd_budget_rate` | same |
-| Tests | 84, about 4 s at the default scale (0.02) | `make test` |
+| Tests | 95, about 5 s at the default scale (0.02) | `make test` |
 
 ## Decisions
 
@@ -108,6 +113,8 @@ with `sql/warehouse` and `sql/views` applied.
   may use constructs the reader rejects (open issue 2).
 - Contracts prove the model matches its SQL definition on generated data, not
   that the definition is what finance wants.
+- The model's data source credentials and role membership are set once per
+  environment by hand (runbook sections 4 and 6).
 - No report definitions are included.
 
 ## What I'd change at 10x
