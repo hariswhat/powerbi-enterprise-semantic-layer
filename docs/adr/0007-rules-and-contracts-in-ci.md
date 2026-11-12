@@ -18,9 +18,9 @@ right numbers. DAX cannot be evaluated outside the Analysis Services engine.
   the same numbers. CI runs the SQL side on generated data and checks finance
   identities. The release pipeline deploys to tst, reloads the tst warehouse
   from the generator with the same seed, refreshes, and compares the DAX
-  results from the executeQueries API with the SQL side. A difference stops
-  the release before prd. The row-level security contract is the exception:
-  a person runs it as a member of the role (ADR-0005).
+  results from the executeDaxQueries API with the SQL side, including the
+  row-level security contract, run as a named role member (ADR-0005). A
+  difference stops the release before prd.
 - Deployment uses `fabric-cicd` with a parameter file for the warehouse server
   per environment.
 
@@ -45,7 +45,11 @@ between stages.
 - The contracts compare DAX with SQL written by the same team. They catch
   mistakes in either, not a shared misunderstanding of a requirement; the
   descriptions in the model are where requirements are stated.
-- executeQueries has limits on rows and query count per minute; each contract
-  returns a few dozen rows, well inside them.
+- executeDaxQueries returns Apache Arrow, so the runner needs pyarrow, and a
+  query error arrives as HTTP 200 with an error rowset, which the runner
+  checks for (`semlayer.contracts.rows_from_arrow`). It allows 120 queries a
+  minute per user; each contract is one query of a few dozen rows.
+- The release's service principal must be a workspace admin in tst, which
+  the deployment already needs.
 - The tst warehouse holds generated data only. Production data quality is not
   tested here; that belongs to the warehouse team's checks.

@@ -52,9 +52,10 @@ endpoint.
   (`DEPARTMENT`, department name) and wait for the nightly refresh, or refresh
   `Security Cost Center` alone.
 - To check what someone sees: Security > Test as role, with their user name.
-- After any change to roles or the security view, run the manual contract
-  `contracts/rls_plant_controller.yml`: its DAX in DAX Studio connected as (or
-  impersonating) a member of Cost Center Access, compared with its SQL.
+- Changes to roles or the security view are checked by the release: the
+  contract `contracts/rls_plant_controller.yml` runs as that user in Cost
+  Center Access. To check another user by hand, use Security > Test as role
+  as above.
 - The Entra groups mapped to Cost Center Access and Cost Center Access with
   Payroll must not share members; a user in both gets an error (ADR-0005).
 - "Payroll measures show an error" for a cost center owner is OLS working as
@@ -76,12 +77,20 @@ right.
 
 ## 6. First deployment to a new environment
 
-fabric-cicd publishes the model definition but not its credentials.
+fabric-cicd publishes the model definition but not its credentials, and the
+release needs the model's id, which exists only after the first publish.
 
-1. Run the release once; the refresh step fails with a credentials error.
-2. In the workspace, Semantic model > Settings > Data source credentials:
+1. Add the release's service principal to the workspace as Admin. fabric-cicd
+   needs at least Contributor; the contracts need Admin, because
+   executeDaxQueries accepts `effectiveUsername` and `roles` only from a
+   workspace admin.
+2. Run the release once. It publishes the model, then fails at the first
+   step that needs `DATASET_ID`. Copy the new semantic model's id (from its
+   URL in the service) into the `finance-model-<env>` variable group as
+   `DATASET_ID`.
+3. In the workspace, Semantic model > Settings > Data source credentials:
    set the warehouse connection to OAuth2 (or a service principal with
    reader rights on the `fin` schema). Later deployments keep it, because the
    model keeps its id.
-3. Map Entra groups to the three roles (section 4).
-4. Rerun the release.
+4. Map Entra groups to the three roles (section 4).
+5. Rerun the release.

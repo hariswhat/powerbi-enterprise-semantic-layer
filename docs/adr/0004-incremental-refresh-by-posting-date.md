@@ -45,9 +45,13 @@ view stays available for reconciliation outside the model.
   folds to SQL. `tests/test_model_size.py` checks the policy is keyed on
   posting date.
 - The rolling window counts from the refresh date. tst holds generated data
-  ending 2026-06-30, so the release pins the refresh's effective date there;
-  without that, the oldest fiscal year would drop out of tst as time passes
-  while the contracts still expect it.
+  for periods ending 2026-06-30, with journals posted up to 45 days later, so
+  the release pins the refresh's effective date to 2026-08-15. Earlier, the
+  late June journals would be outside every partition; later, the oldest
+  fiscal year would drop out of tst while the contracts still expect it.
+- When a calendar year drops out of the window, the oldest fiscal year loses
+  its first six months and its first periods show only the journals posted
+  late into the next year (open issue 9).
 - The rule `INCREMENTAL_FILTER` requires `>= RangeStart` and `< RangeEnd` in
   both the policy and the partition, so a boundary row is never loaded twice.
 - After a deployment that changes `GL Actual`'s columns, partitions outside the

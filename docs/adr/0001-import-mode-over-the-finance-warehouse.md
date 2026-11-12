@@ -32,7 +32,7 @@ and time intelligence over DirectQuery generates heavy SQL.
 
 **Direct Lake.** Import-like speed without copying data, but it needs the data
 as Delta tables in OneLake. The finance warehouse is Azure SQL; mirroring it
-into Fabric first is a reasonable later step (README, "At 10x"), not a reason to
+into Fabric first is a reasonable later step (README, "What I'd change at 10x"), not a reason to
 delay the model.
 
 **Keep separate report-level models, add a style guide.** Cheapest. Rejected

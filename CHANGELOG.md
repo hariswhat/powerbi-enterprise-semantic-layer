@@ -2,6 +2,26 @@
 
 Changes to this repository, newest first. Dates are commit dates.
 
+## 2026-11-12 (second review)
+
+- Contracts now call the executeDaxQueries API. The executeQueries API
+  rejects service principals on any model with RLS, so the release could not
+  have run any contract. The new API returns Arrow; the runner reads it and
+  treats an error rowset as a failure. Because it accepts `effectiveUsername`
+  and `roles` from a workspace admin, the RLS contract is now automated.
+- tst's pinned refresh date moved to 2026-08-15, so June 2026 journals posted
+  late are inside the window; a test ties it to the generator's longest lag.
+- `Forecast` chose its version in each cell, so rows did not add up to
+  totals and a multi-year total dropped years. It now chooses per fiscal
+  year. The generator leaves the latest year without a 9+3 forecast, and a
+  new contract checks the total and that account classes add up to it.
+- The prd refresh schedule set `MailOnFailure`, which service principals
+  cannot; it sets `NoNotification`.
+- Docs: the first deployment needs the dataset id copied into the variable
+  group; the oldest year goes partial when a year leaves the window (open
+  issue 9); the 10x section no longer claims what was not measured. The ODBC
+  package list follows the agent's Ubuntu version.
+
 ## 2026-11-11 (review fixes)
 
 A review of the docs against the code, and of the model against how Power BI

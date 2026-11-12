@@ -4,7 +4,9 @@ Known gaps, in priority order.
 
 1. **Nothing here has run against a capacity.** The TMDL is checked by the
    rules and tests, the views run on DuckDB, and the contract SQL runs, but no
-   refresh, deployment or executeQueries call has run from this repo. The first
+   refresh, deployment or executeDaxQueries call has run from this repo; the
+   Arrow column names the contract runner expects are from the API
+   documentation, not from a response. The first
    tst release is the real test of the model definition.
 2. **The rules are not Tabular Editor's.** `semlayer.rules` reads the subset
    of TMDL this repo writes. A model saved by Power BI Desktop may contain
@@ -26,8 +28,13 @@ Known gaps, in priority order.
 8. **Credentials and role membership are manual** (runbook sections 4 and 6).
    Both have REST APIs; the release could set them, at the cost of the
    release identity holding more rights than it needs today.
-9. **The RLS contract is manual.** It needs an identity that is a member of
-   the role, which the release's service principal cannot impersonate.
+9. **The oldest reported year is partial.** The refresh policy keeps the
+   current calendar year of posting dates and the three before it. When a year
+   drops out (each 1 January),
+   the oldest fiscal year loses July to December, and its first periods show
+   only journals posted late into the next calendar year: a small, wrong
+   number, not a blank. Either hide fiscal periods that start before the
+   window, or filter the summary view to the same window.
 10. **Nothing checks that role groups are disjoint.** A user in both Cost
     Center Access and Cost Center Access with Payroll gets an error; a
     nightly check against Entra could catch it first.

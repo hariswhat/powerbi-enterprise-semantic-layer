@@ -24,7 +24,7 @@ C4Container
     Rel(model, fin, "Partition queries, posting_date folds to SQL")
     Rel(reports, model, "DAX")
     Rel(deploy, model, "Publish, enhanced refresh")
-    Rel(contracts, model, "executeQueries in tst")
+    Rel(contracts, model, "executeDaxQueries in tst")
     Rel(contracts, fin, "SQL side, same data")
     Rel(rules, model, "TMDL in Git")
 ```
@@ -61,6 +61,7 @@ relationships. All fourteen relationships are many-to-one and single direction
 3. tst: apply `sql/warehouse` and `sql/views`; deploy with fabric-cicd;
    regenerate the warehouse data with the fixed seed and load it; enhanced
    refresh with the effective date pinned to the end of the data; run every
-   automated contract through executeQueries and compare with the SQL side.
+   contract (row-level security included) through executeDaxQueries and
+   compare with the SQL side.
 4. prd, after approval: apply `sql/views`, deploy, refresh, set the nightly
    refresh schedule. No contracts against production data.

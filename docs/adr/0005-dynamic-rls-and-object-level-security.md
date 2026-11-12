@@ -49,10 +49,11 @@ and an OLS-only role gets an error. Hence two complete roles instead.
   deployment.
 - Each user should be in exactly one role. Membership is managed through Entra
   groups mapped to roles in the service (runbook section 4).
-- The RLS contract (`contracts/rls_plant_controller.yml`) is run by a person
-  as a member of the role: executeQueries resolves the impersonated user's real
-  role membership, and the release's service principal cannot impersonate on
-  an RLS model. Its SQL side is tested in CI.
+- The RLS contract (`contracts/rls_plant_controller.yml`) runs in the release
+  as a named user in the Cost Center Access role. The executeDaxQueries API
+  accepts `effectiveUsername` and `roles` from a service principal that is a
+  workspace admin; the older executeQueries API rejects service principals on
+  any model with RLS. Its SQL side is tested in CI.
 - Nothing in the repo can see role membership, so "one role per user" is a
   convention kept by the Entra groups (runbook section 4).
 - The Unknown cost center is visible only to ALL grants, so rows that fail to

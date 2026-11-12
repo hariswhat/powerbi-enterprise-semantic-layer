@@ -32,14 +32,18 @@ find the column in the view without a mapping table.
 
 ```dax
 Forecast =
-    VAR LatestVersion =
-        CALCULATE(MAX(Forecast[forecast_version_sort]), REMOVEFILTERS())
-    RETURN
-        IF(
-            ISFILTERED(Forecast[Forecast Version]),
-            SUM(Forecast[amount_usd]),
+    SUMX(
+        VALUES('Date'[Fiscal Year Number]),
+        VAR LatestVersion =
+            CALCULATE(
+                MAX(Forecast[forecast_version_sort]),
+                REMOVEFILTERS(Account),
+                REMOVEFILTERS('Cost Center'),
+                REMOVEFILTERS(Entity)
+            )
+        RETURN
             CALCULATE(SUM(Forecast[amount_usd]), Forecast[forecast_version_sort] = LatestVersion)
-        )
+    )
 ```
 
 ## TMDL

@@ -34,7 +34,7 @@ because calculated columns are evaluated after compression and add memory.
 
 **Tables instead of views.** A materialised reporting layer would be faster to
 read. Not needed at this volume, and views keep one copy of the logic.
-Revisit if refresh time grows (README, "At 10x").
+Revisit if refresh time grows (README, "What I'd change at 10x").
 
 ## Consequences
 

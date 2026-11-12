@@ -57,10 +57,10 @@ rates never show up as performance; `FX Impact` shows them separately.
 4. **tst before prd.** The release applies the views, deploys to tst, reloads
    the tst warehouse from the generator with the same seed, refreshes with the
    policy's date pinned to the end of the data, and compares each automated
-   contract's DAX result (executeQueries API) with its SQL. Any difference
-   stops the release. The row-level security contract is run by a person,
-   because the release's service principal cannot impersonate users on an RLS
-   model. [ADR-0007]
+   contract's DAX result (executeDaxQueries API) with its SQL. Any difference
+   stops the release. The row-level security contract runs as a named user
+   in the Cost Center Access role, which the API allows because the release's
+   service principal is a workspace admin. [ADR-0007]
 
 ## Measured here
 
@@ -68,9 +68,9 @@ rates never show up as performance; `FX Impact` shows them separately.
 |---|---|---|
 | Generated ledger at full scale (3 fiscal years) | 3,697,571 lines in 739,338 journals; 21,959 journals posted after their period ended; 7,278 reversals | `make data SCALE=1.0` (about 20 s); counts in `data/_counts.json` |
 | GL rows the model imports | 1,159,954 (3.19x fewer than lines) | `python -m semlayer.model_size --data data` |
-| Estimated size of GL Actual's imported columns | 26.4M bytes from the summary view, 56.5M at line grain; whole model 29.9M | same; the estimate ignores run-length encoding, so it ranks columns rather than predicting the service's number |
+| Estimated size of GL Actual's imported columns | 26.4M bytes from the summary view, 56.5M at line grain; whole model 29.7M | same; the estimate ignores run-length encoding, so it ranks columns rather than predicting the service's number |
 | Largest imported columns | `GL Actual` `amount_usd` and `amount_usd_budget_rate` | same |
-| Tests | 95, about 5 s at the default scale (0.02) | `make test` |
+| Tests | 102, about 5 s at the default scale (0.02) | `make test` |
 
 ## Decisions
 
@@ -121,19 +121,22 @@ with `sql/warehouse` and `sql/views` applied.
 
 Ten times the entities and ledger volume:
 
-- **Mirror the warehouse into Fabric and use Direct Lake.** At 10x the Import
-  refresh becomes the long pole. With the ledger in OneLake, Direct Lake removes
-  the copy; the views would become materialised Delta tables, since Direct Lake
-  reads tables, not SQL views.
+- **Measure the refresh first.** Ten times the 1,159,954 summary rows is about 11.6M,
+  which Import handles. Only if the nightly refresh in tst stops fitting its
+  window would I mirror the warehouse into Fabric and use Direct Lake; the
+  views would then become materialised Delta tables, since Direct Lake reads
+  tables, not SQL views.
 - **Aggregations.** Keep a month-grain aggregation table in Import for the
   common visuals and push rare detail queries to DirectQuery (or Direct Lake).
-- **Partition by period as well as posting date** for the history, so a
-  restatement of one year reprocesses one partition.
+- **Partition the history by fiscal period** so a restatement of one year
+  reprocesses one partition. A basic refresh policy cannot do this; it means
+  custom partitions managed over the XMLA endpoint, which is why it is not
+  done at today's size.
 - **Split the model by audience** only if memory forces it: a payroll model
   separate from the P&L model would also simplify the role design.
-- **Grant audit.** At scale, someone in a role with no grant is a support
-  ticket a day; a nightly check that every role member has a grant (open
-  issue 6).
+- **Grant audit.** With many more users, a nightly check that every role
+  member has a grant and that the role groups do not overlap (open issues 6
+  and 10).
 
 ## Layout
 
