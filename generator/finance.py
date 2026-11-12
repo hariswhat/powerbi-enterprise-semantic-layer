@@ -346,10 +346,16 @@ def plan_lines(cfg: Config, gl: pd.DataFrame, name: str, versions: list[str]) ->
         .reset_index()
     )
     out = []
+    last_fy = fiscal_year(last_day())
     for version in versions:
         m = monthly.copy()
         m["version"] = version
         m["amount_usd"] = [round(a * rng.uniform(0.88, 1.10), 2) for a in m["amount_usd"]]
+        if version == "9+3":
+            # The latest year's 9+3 forecast is not issued yet, so years have
+            # different latest versions and a total across years has to pick
+            # each year's own (the Forecast measure, forecast contracts).
+            m = m[[fiscal_year(d) != last_fy for d in m["period_date"]]]
         out.append(m)
     return pd.concat(out, ignore_index=True).rename(columns={"period_date": "month_start"})
 

@@ -1,0 +1,25 @@
+name: forecast_total
+description: A Forecast total over all years adds each year's own latest version, and the account classes under it add up to it, because the version is chosen per fiscal year and not per cell.
+measures: [Forecast]
+keys: []
+dax: |
+  EVALUATE
+  ROW(
+      "Forecast", [Forecast],
+      "Forecast by class", CALCULATE(SUMX(VALUES(Account[Account Class]), [Forecast]))
+  )
+sql: |
+  WITH f AS (
+      SELECT d.fiscal_year_label AS fy, f.forecast_version_sort AS v, a.account_class AS cls
+           , SUM(f.amount_usd) AS amt
+      FROM fin.vw_fact_forecast AS f
+      JOIN fin.vw_dim_date AS d ON d.date_key = f.period_date_key
+      JOIN fin.vw_dim_account AS a ON a.account_key = f.account_key
+      GROUP BY d.fiscal_year_label, f.forecast_version_sort, a.account_class
+  ), latest AS (
+      SELECT fy, MAX(v) AS v FROM f GROUP BY fy
+  )
+  SELECT
+        SUM(f.amt) AS "[Forecast]"
+      , SUM(f.amt) AS "[Forecast by class]"
+  FROM f JOIN latest AS l ON l.fy = f.fy AND l.v = f.v

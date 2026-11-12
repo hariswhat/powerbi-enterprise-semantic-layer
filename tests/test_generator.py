@@ -27,6 +27,22 @@ def test_late_postings_present_and_bounded(data_dir):
     assert late_days.max() <= LATE_POSTING_MAX_DAYS
 
 
+def test_tst_effective_date_covers_every_posting_date(data_dir):
+    """The release pins tst's refresh date. Any posting date after it falls
+    outside every partition and the contracts would disagree with the model."""
+    import re
+    from datetime import date, timedelta
+    from pathlib import Path
+
+    release = (Path(__file__).resolve().parents[1] / "pipelines" / "release.yml").read_text()
+    pinned = date.fromisoformat(re.search(r'TST_EFFECTIVE_DATE: "([\d-]+)"', release).group(1))
+    gl = pd.read_parquet(data_dir / "gl_line.parquet")
+    assert pd.to_datetime(gl["posting_date"]).max().date() <= pinned
+    # and it holds at any scale: the last period plus the longest lag
+    last_period_end = pd.to_datetime(gl["period_date"]).max() + pd.offsets.MonthEnd(0)
+    assert (last_period_end.date() + timedelta(days=LATE_POSTING_MAX_DAYS)) <= pinned
+
+
 def test_reversals_net_to_zero(data_dir):
     gl = pd.read_parquet(data_dir / "gl_line.parquet")
     rev = gl[gl["is_reversal"] == 1]

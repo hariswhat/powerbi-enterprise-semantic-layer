@@ -38,11 +38,20 @@ table Measures
 		displayFolder: Budget
 		lineageTag: d2a8271b-d8b9-5ef6-8563-3d9bbb3d6361
 
-	/// Forecast in USD at the budget rate, from one version: the latest version visible in the current filter (per year, account and so on), so selecting several versions never adds them together.
+	/// Forecast in USD at the budget rate, from one version per fiscal year: the latest version visible for that year, whatever account, cost center or entity is filtered, so rows add up to their totals and selecting several versions never adds them together. A total over several years adds each year's own latest version.
 	measure Forecast =
-			VAR LatestVersion = MAX(Forecast[forecast_version_sort])
-			RETURN
-			    CALCULATE(SUM(Forecast[amount_usd]), Forecast[forecast_version_sort] = LatestVersion)
+			SUMX(
+			    VALUES('Date'[Fiscal Year Number]),
+			    VAR LatestVersion =
+			        CALCULATE(
+			            MAX(Forecast[forecast_version_sort]),
+			            REMOVEFILTERS(Account),
+			            REMOVEFILTERS('Cost Center'),
+			            REMOVEFILTERS(Entity)
+			        )
+			    RETURN
+			        CALCULATE(SUM(Forecast[amount_usd]), Forecast[forecast_version_sort] = LatestVersion)
+			)
 		formatString: #,0
 		displayFolder: Forecast
 		lineageTag: 2708f548-8417-589b-addf-e8704e0edd0b

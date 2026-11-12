@@ -17,7 +17,10 @@ variables:
   SCALE: "0.02"
   SEED: "7"
   SQL_DATABASE: finance_dw
-  TST_EFFECTIVE_DATE: "2026-06-30"   # last day of the generated data
+  # Last day of the generated data plus the generator's 45-day late-posting
+  # lag, so the June 2026 journals posted in July and August are inside the
+  # refresh window (tests/test_views.py checks it).
+  TST_EFFECTIVE_DATE: "2026-08-15"
 
 stages:
   - stage: validate
@@ -60,7 +63,7 @@ stages:
                         set -euo pipefail
                         # ODBC Driver 18 for pyodbc; go-sqlcmd for the SQL files.
                         curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc > /dev/null
-                        curl -sSL https://packages.microsoft.com/config/ubuntu/22.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list > /dev/null
+                        curl -sSL https://packages.microsoft.com/config/ubuntu/`lsb_release -rs`/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list > /dev/null
                         sudo apt-get update -q
                         sudo ACCEPT_EULA=Y apt-get install -y -q msodbcsql18 sqlcmd
                         python -m pip install -r requirements-deploy.txt
