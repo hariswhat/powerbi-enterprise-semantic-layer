@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -42,7 +43,8 @@ class Contract:
     dax: str
     sql: str
     calculation_items: list[str] = field(default_factory=list)
-    impersonate: str | None = None
+    impersonate: str | None = None  # effectiveUsername, with `roles`
+    roles: list[str] = field(default_factory=list)
     manual: bool = False  # run by a person, not the release (see the contract)
     abs_tolerance: float = 0.01
     rel_tolerance: float = 1e-6
@@ -117,26 +119,54 @@ def compare(contract: Contract, want: list[dict], got: list[dict]) -> list[str]:
     return diffs
 
 
+def dax_request(contract: Contract) -> dict:
+    """Body for the executeDaxQueries API. The older executeQueries API does
+    not accept a service principal on a model with RLS at all; this one does
+    when the principal is a workspace admin, and lets it name the user and
+    role to test row-level security with (ADR-0007)."""
+    body: dict = {"query": contract.dax}
+    if contract.impersonate:
+        body["effectiveUsername"] = contract.impersonate
+        body["roles"] = contract.roles
+    return body
+
+
+def column_name(arrow_name: str) -> str:
+    """'Cost Center'[Division] -> Cost Center[Division], the form the
+    contracts' keys and SQL aliases use."""
+    return re.sub(r"^'(.*)'(\[.*\])$", r"\1\2", arrow_name)
+
+
+def rows_from_arrow(payload: bytes, name: str) -> list[dict]:
+    """The response is one or more concatenated Arrow IPC streams. A query
+    error still returns HTTP 200, as a stream whose schema metadata has
+    IsError = true, so every stream is checked."""
+    import pyarrow as pa
+
+    rows: list[dict] = []
+    buf = pa.BufferReader(payload)
+    while buf.tell() < len(payload):
+        reader = pa.ipc.open_stream(buf)
+        meta = {k.decode(): v.decode() for k, v in (reader.schema.metadata or {}).items()}
+        if meta.get("IsError", "").lower() == "true":
+            raise RuntimeError(f"{name}: {meta.get('ErrorCode')} {meta.get('ErrorMessage')}")
+        table = reader.read_all()
+        table = table.rename_columns([column_name(c) for c in table.column_names])
+        rows += table.to_pylist()
+    return rows
+
+
 def execute_dax(dataset_id: str, contract: Contract, token: str) -> list[dict]:  # pragma: no cover
     import requests
 
-    body = {
-        "queries": [{"query": contract.dax}],
-        "serializerSettings": {"includeNulls": True},
-    }
-    if contract.impersonate:
-        body["impersonatedUserName"] = contract.impersonate
     r = requests.post(
-        f"{API}/datasets/{dataset_id}/executeQueries",
+        f"{API}/datasets/{dataset_id}/executeDaxQueries",
         headers={"Authorization": f"Bearer {token}"},
-        json=body,
+        json=dax_request(contract),
         timeout=120,
     )
     r.raise_for_status()
-    result = r.json()["results"][0]
-    if "error" in result:
-        raise RuntimeError(f"{contract.name}: {result['error']}")
-    return result["tables"][0]["rows"]
+    return rows_from_arrow(r.content, contract.name)
 
 
 def main() -> int:  # pragma: no cover

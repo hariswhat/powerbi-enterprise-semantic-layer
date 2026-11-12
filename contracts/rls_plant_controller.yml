@@ -1,9 +1,9 @@
 name: rls_plant_controller
-description: A department-level grant sees only that department's cost centers. Manual (runbook section 4) - executeQueries resolves the impersonated user's real role membership, and the release's service principal cannot impersonate on an RLS model. Run it in DAX Studio or the service as a member of Cost Center Access.
+description: A department-level grant sees only that department's cost centers. The release runs it as this user in the Cost Center Access role (executeDaxQueries with effectiveUsername and roles, which needs the service principal to be a workspace admin).
 measures: [Actual]
 keys: ["Cost Center[Division]", "Cost Center[Department]"]
 impersonate: plant.controller@northgate.example
-manual: true
+roles: [Cost Center Access]
 dax: |
   EVALUATE
   SUMMARIZECOLUMNS(

@@ -6,6 +6,7 @@ import re
 import pytest
 
 from semlayer import contracts
+from semlayer.contracts import dax_request, rows_from_arrow
 
 ALL = contracts.load_all()
 BY_NAME = {c.name: c for c in ALL}
@@ -24,7 +25,7 @@ def test_sql_side_runs_and_returns_rows(con, contract):
 
 @pytest.mark.parametrize("contract", ALL, ids=lambda c: c.name)
 def test_dax_names_the_columns_the_sql_returns(con, contract):
-    """executeQueries names measure columns [Name] and column references
+    """The DAX API names measure columns [Name] and column references
     Table[Column]; the SQL aliases must match or the comparison sees nothing."""
     out = contracts.expected(con, contract)
     dax_values = {f"[{n}]" for n in re.findall(r'"([^"]+)",\s*(?:\[|CALCULATE)', contract.dax)}
@@ -106,8 +107,50 @@ def test_headcount_is_not_summed_over_months(con):
         assert r["[Headcount]"] < monthly_sum
 
 
-def test_rls_contract_is_manual():
-    assert BY_NAME["rls_plant_controller"].manual
+def test_rls_contract_runs_as_a_role_member():
+    c = BY_NAME["rls_plant_controller"]
+    assert not c.manual
+    body = dax_request(c)
+    assert body["effectiveUsername"] == "plant.controller@northgate.example"
+    assert body["roles"] == ["Cost Center Access"]
+
+
+def test_unrestricted_contracts_send_only_the_query():
+    assert dax_request(BY_NAME["budget_variance_by_line"]).keys() == {"query"}
+
+
+def _arrow_stream(table, metadata=None) -> bytes:
+    import pyarrow as pa
+
+    if metadata:
+        table = table.replace_schema_metadata(metadata)
+    sink = pa.BufferOutputStream()
+    opts = pa.ipc.IpcWriteOptions(compression="lz4")
+    with pa.ipc.new_stream(sink, table.schema, options=opts) as w:
+        w.write_table(table)
+    return sink.getvalue().to_pybytes()
+
+
+def test_arrow_response_is_read_and_column_names_normalised():
+    import pyarrow as pa
+
+    one = pa.table({"'Cost Center'[Division]": ["Manufacturing"], "[Actual]": [-12.5]})
+    two = pa.table({"'Cost Center'[Division]": ["Sales"], "[Actual]": [3.0]})
+    rows = rows_from_arrow(_arrow_stream(one) + _arrow_stream(two), "t")
+    assert rows == [
+        {"Cost Center[Division]": "Manufacturing", "[Actual]": -12.5},
+        {"Cost Center[Division]": "Sales", "[Actual]": 3.0},
+    ]
+
+
+def test_arrow_error_rowset_raises():
+    import pyarrow as pa
+
+    err = _arrow_stream(
+        pa.table({"x": [1]}), {"IsError": "true", "ErrorCode": "Q1", "ErrorMessage": "bad"}
+    )
+    with pytest.raises(RuntimeError, match="Q1 bad"):
+        rows_from_arrow(err, "t")
 
 
 def test_rls_spec_returns_one_department(con):
@@ -117,17 +160,34 @@ def test_rls_spec_returns_one_department(con):
 
 
 def test_forecast_uses_one_version_per_year(con):
-    """The spec picks the latest version per year and never sums versions:
-    here every year has all three, so the latest is 9+3."""
-    latest = dict(
-        con.execute(
-            "SELECT d.fiscal_year_label, SUM(f.amount_usd) FROM fin.vw_fact_forecast f "
-            "JOIN fin.vw_dim_date d ON d.date_key = f.period_date_key "
-            "WHERE f.forecast_version = '9+3' GROUP BY 1"
-        ).fetchall()
+    """The spec picks each year's latest version and never sums versions. The
+    last year has no 9+3 yet, so its latest is 6+6 while earlier years use 9+3."""
+    by_version = con.execute(
+        "SELECT d.fiscal_year_label, f.forecast_version, SUM(f.amount_usd) "
+        "FROM fin.vw_fact_forecast f JOIN fin.vw_dim_date d ON d.date_key = f.period_date_key "
+        "GROUP BY d.fiscal_year_label, f.forecast_version"
+    ).fetchall()
+    versions: dict[str, dict[str, float]] = {}
+    for fy, v, amt in by_version:
+        versions.setdefault(fy, {})[v] = float(amt)
+    last = max(versions)
+    assert "9+3" not in versions[last] and all(
+        "9+3" in versions[fy] for fy in versions if fy != last
     )
     for r in rows(con, "forecast_versions"):
-        assert r["[Forecast]"] == pytest.approx(float(latest[r["Date[Fiscal Year]"]]))
+        fy = r["Date[Fiscal Year]"]
+        expected = versions[fy]["9+3"] if fy != last else versions[fy]["6+6"]
+        assert r["[Forecast]"] == pytest.approx(expected)
+
+
+def test_forecast_total_adds_each_years_latest(con):
+    total = rows(con, "forecast_total")[0]
+    per_year = sum(
+        r["[Forecast]"] for r in rows(con, "forecast_versions") if r["[Forecast]"] is not None
+    )
+    assert total["[Forecast]"] == pytest.approx(per_year)
+    # account classes add up to the total: the version is chosen per year, not per cell
+    assert total["[Forecast by class]"] == pytest.approx(total["[Forecast]"])
 
 
 def test_contract_sql_is_tsql_compatible():

@@ -56,7 +56,9 @@ def schedule_body(times: list[str], time_zone: str = "Eastern Standard Time") ->
             "days": days,
             "times": times,
             "localTimeZoneId": time_zone,
-            "notifyOption": "MailOnFailure",
+            # Service principals may only set NoNotification; failures are
+            # caught by the release and by refresh history (runbook section 2).
+            "notifyOption": "NoNotification",
         }
     }
 
