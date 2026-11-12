@@ -12,6 +12,7 @@ def test_refresh_applies_the_policy_transactionally():
     assert body["applyRefreshPolicy"] is True and body["commitMode"] == "transactional"
     assert "objects" not in body
     assert refresh_body(["GL Actual"])["objects"] == [{"table": "GL Actual"}]
+    assert refresh_body(["GL Actual"], apply_policy=False)["applyRefreshPolicy"] is False
 
 
 def test_dw_ddl_declares_every_generated_column(data_dir):
