@@ -51,3 +51,8 @@ def test_report_renders(data_dir):
     text = model_size.report(data_dir)
     assert "| GL line view | journal_id | no |" in text
     assert "summary view the model imports" in text
+
+
+def test_summary_estimate_is_smaller_than_line_grain(con, model):
+    at_lines, at_summary = model_size.gl_imported_estimate(con, model)
+    assert at_summary < at_lines

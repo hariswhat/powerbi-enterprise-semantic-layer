@@ -75,6 +75,27 @@ def gl_grain_reduction(con) -> tuple[int, int]:
     return lines, grouped
 
 
+def _estimate(con, view: str, column: str, rows: int) -> int:
+    distinct, avg_len, is_text = con.execute(
+        f"SELECT COUNT(DISTINCT {column}), AVG(LENGTH(CAST({column} AS VARCHAR))), "
+        f"typeof(ANY_VALUE({column})) = 'VARCHAR' FROM fin.{view}"
+    ).fetchone()
+    per_value = (avg_len or 0) if is_text else 8
+    bits = max(1, math.ceil(math.log2(max(distinct, 2))))
+    return int(distinct * per_value + rows * bits / 8)
+
+
+def gl_imported_estimate(con, model: tmdl.Model) -> tuple[int, int]:
+    """(estimate for GL Actual's imported columns at line grain, from the
+    summary view). The same columns, measured on both views."""
+    cols = [c.props["sourceColumn"] for c in model.table("GL Actual").all("column")]
+    out = []
+    for view in ("vw_fact_gl_actual", "vw_fact_gl_summary"):
+        rows = con.execute(f"SELECT COUNT(*) FROM fin.{view}").fetchone()[0]
+        out.append(sum(_estimate(con, view, c, rows) for c in cols))
+    return out[0], out[1]
+
+
 def line_view_stats(con) -> list[ColumnStat]:
     """The columns the summary view drops, measured on the line view."""
     rows = con.execute("SELECT COUNT(*) FROM fin.vw_fact_gl_actual").fetchone()[0]
@@ -108,11 +129,14 @@ def report(data_dir: Path) -> str:
     in_model = sum(s.approx_bytes for s in stats if s.in_model)
     left_out = sum(s.approx_bytes for s in stats if not s.in_model)
     raw, grouped = gl_grain_reduction(con)
+    at_lines, at_summary = gl_imported_estimate(con, model)
     lines += [
         "",
         f"Imported columns: {in_model:,} approx. bytes. Columns left out: {left_out:,}.",
         f"GL Actual: {raw:,} rows in the line view, {grouped:,} in the summary view the "
         f"model imports ({raw / max(grouped, 1):.2f}x fewer).",
+        f"GL Actual imported columns: {at_lines:,} approx. bytes at line grain, "
+        f"{at_summary:,} from the summary view.",
     ]
     return "\n".join(lines)
 
