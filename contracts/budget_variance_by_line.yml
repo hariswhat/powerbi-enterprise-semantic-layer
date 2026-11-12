@@ -17,13 +17,13 @@ sql: |
       FROM fin.vw_fact_gl_actual AS f
       JOIN fin.vw_dim_date AS d ON d.date_key = f.period_date_key
       JOIN fin.vw_dim_account AS ac ON ac.account_key = f.account_key
-      GROUP BY 1, 2
+      GROUP BY d.fiscal_year_label, ac.statement_line
   ), b AS (
       SELECT d.fiscal_year_label AS fy, ac.statement_line AS line, SUM(f.amount_usd) AS bud
       FROM fin.vw_fact_budget AS f
       JOIN fin.vw_dim_date AS d ON d.date_key = f.period_date_key
       JOIN fin.vw_dim_account AS ac ON ac.account_key = f.account_key
-      GROUP BY 1, 2
+      GROUP BY d.fiscal_year_label, ac.statement_line
   )
   SELECT
         COALESCE(a.fy, b.fy) AS "Date[Fiscal Year]"

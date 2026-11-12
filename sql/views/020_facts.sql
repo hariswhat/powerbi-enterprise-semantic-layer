@@ -26,7 +26,7 @@ SELECT
     , COALESCE(a.account_id, -1) AS account_key
     , COALESCE(cc.cost_center_id, -1) AS cost_center_key
     , COALESCE(e.entity_id, -1) AS entity_key
-    , gl.is_reversal
+    , CAST(gl.is_reversal AS INT) AS is_reversal
     , CAST(-gl.amount_local AS DECIMAL(19, 4)) AS amount_local
     , CAST(-gl.amount_local * fx.avg_rate_to_usd AS DECIMAL(19, 4)) AS amount_usd
     , CAST(-gl.amount_local * fx.budget_rate_to_usd AS DECIMAL(19, 4)) AS amount_usd_budget_rate

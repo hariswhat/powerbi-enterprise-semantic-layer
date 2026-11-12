@@ -106,15 +106,36 @@ def test_headcount_is_not_summed_over_months(con):
         assert r["[Headcount]"] < monthly_sum
 
 
-def test_rls_rows_are_a_subset(con):
+def test_rls_contract_is_manual():
+    assert BY_NAME["rls_plant_controller"].manual
+
+
+def test_rls_spec_returns_one_department(con):
     restricted = rows(con, "rls_plant_controller")
     assert {r["Cost Center[Division]"] for r in restricted} == {"Manufacturing"}
     assert len(restricted) == 1
 
 
-def test_forecast_defaults_to_latest_version(con):
+def test_forecast_uses_one_version_per_year(con):
+    """The spec picks the latest version per year and never sums versions:
+    here every year has all three, so the latest is 9+3."""
+    latest = dict(
+        con.execute(
+            "SELECT d.fiscal_year_label, SUM(f.amount_usd) FROM fin.vw_fact_forecast f "
+            "JOIN fin.vw_dim_date d ON d.date_key = f.period_date_key "
+            "WHERE f.forecast_version = '9+3' GROUP BY 1"
+        ).fetchall()
+    )
     for r in rows(con, "forecast_versions"):
-        assert r["[Forecast]"] != pytest.approx(r["[Forecast 3+9]"])
+        assert r["[Forecast]"] == pytest.approx(float(latest[r["Date[Fiscal Year]"]]))
+
+
+def test_contract_sql_is_tsql_compatible():
+    """The runbook has people run contract SQL against the warehouse, so it
+    must avoid DuckDB-only syntax: ordinal GROUP BY, USING, :: casts, QUALIFY."""
+    for c in ALL:
+        for pattern in (r"GROUP BY\s+\d", r"\bUSING\s*\(", r"::", r"\bQUALIFY\b"):
+            assert not re.search(pattern, c.sql, re.I), (c.name, pattern)
 
 
 # --- the comparison itself -------------------------------------------------
@@ -150,6 +171,13 @@ def test_compare_reports_value_missing_and_extra_rows():
     assert any("FY2025" in d and "missing" in d for d in diffs)
     assert any("FY2027" in d and "not expected" in d for d in diffs)
     assert any("expected 100.0, DAX 90.0" in d for d in diffs)
+
+
+def test_compare_ratio_columns_tightly():
+    c = _contract()
+    want = [{"Date[Fiscal Year]": "FY2026", "[Gross Margin %]": 0.3512}]
+    got = [{"Date[Fiscal Year]": "FY2026", "[Gross Margin %]": 0.3462}]
+    assert contracts.compare(c, want, got)
 
 
 def test_compare_treats_blank_and_zero_differently():

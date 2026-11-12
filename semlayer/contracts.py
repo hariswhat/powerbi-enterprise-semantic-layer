@@ -43,7 +43,7 @@ class Contract:
     sql: str
     calculation_items: list[str] = field(default_factory=list)
     impersonate: str | None = None
-    role: str | None = None
+    manual: bool = False  # run by a person, not the release (see the contract)
     abs_tolerance: float = 0.01
     rel_tolerance: float = 1e-6
     path: Path | None = None
@@ -80,10 +80,19 @@ def expected(con, contract: Contract) -> list[dict]:
     ]
 
 
+RATIO_ABS_TOLERANCE = 1e-6
+
+
 def _close(a, b, abs_tol: float, rel_tol: float) -> bool:
     if a is None or b is None:
         return a is None and b is None
     return math.isclose(float(a), float(b), rel_tol=rel_tol, abs_tol=abs_tol)
+
+
+def _tolerance(contract: Contract, column: str) -> float:
+    """Amounts are compared to the cent; ratios (columns named with %) much
+    more tightly, since a cent-sized tolerance would hide a percentage point."""
+    return RATIO_ABS_TOLERANCE if "%" in column else contract.abs_tolerance
 
 
 def compare(contract: Contract, want: list[dict], got: list[dict]) -> list[str]:
@@ -103,7 +112,7 @@ def compare(contract: Contract, want: list[dict], got: list[dict]) -> list[str]:
     for k in sorted(set(w) & set(g), key=str):
         for col in _value_columns([w[k]], contract.keys):
             a, b = w[k].get(col), g[k].get(col)
-            if not _close(a, b, contract.abs_tolerance, contract.rel_tolerance):
+            if not _close(a, b, _tolerance(contract, col), contract.rel_tolerance):
                 diffs.append(f"{contract.name}: {k} {col} expected {a}, DAX {b}")
     return diffs
 
@@ -124,7 +133,10 @@ def execute_dax(dataset_id: str, contract: Contract, token: str) -> list[dict]: 
         timeout=120,
     )
     r.raise_for_status()
-    return r.json()["results"][0]["tables"][0]["rows"]
+    result = r.json()["results"][0]
+    if "error" in result:
+        raise RuntimeError(f"{contract.name}: {result['error']}")
+    return result["tables"][0]["rows"]
 
 
 def main() -> int:  # pragma: no cover
@@ -151,7 +163,9 @@ def main() -> int:  # pragma: no cover
         if a.out:
             a.out.mkdir(parents=True, exist_ok=True)
             (a.out / f"{c.name}.json").write_text(json.dumps(want, indent=2, default=str))
-        if token:
+        if token and c.manual:
+            print(f"{'':<32} manual contract, not run by the release")
+        elif token:
             failures += compare(c, want, execute_dax(a.dataset_id, c, token))
     for f in failures:
         print("FAIL", f)

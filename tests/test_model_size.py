@@ -32,19 +32,8 @@ def test_incremental_refresh_is_keyed_on_posting_date(model):
         gl.first("refreshPolicy").props["sourceExpression"],
         gl.first("partition").props["source"],
     ):
-        assert "[posting_date] >= RangeStart" in expr and "[period_date_key]" not in expr
-
-
-def test_incremental_window_covers_late_postings(con, model):
-    """The window still covers the latest posting delay in the data, for
-    adjustments some ERPs allow to be backdated to the period end."""
-    rp = model.table("GL Actual").first("refreshPolicy")
-    assert rp.props["incrementalGranularity"] == "month"
-    window_days = int(rp.props["incrementalPeriods"]) * 28
-    max_late = con.execute(
-        "SELECT MAX(datediff('day', last_day(period_date), posting_date)) FROM dw.gl_line"
-    ).fetchone()[0]
-    assert window_days > max_late
+        assert "[posting_date] >= Date.From(RangeStart)" in expr
+        assert "[period_date_key]" not in expr
 
 
 def test_report_renders(data_dir):

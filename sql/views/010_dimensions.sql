@@ -1,5 +1,8 @@
 -- Dimensions, each with a -1 Unknown member so a fact row with a missing or
--- late-arriving key still reports (on Unknown) instead of disappearing.
+-- late-arriving account or cost center still reports (on Unknown) instead of
+-- disappearing. Entity is different: the fact views convert currency through
+-- the entity's currency, so a ledger row with an unknown entity cannot be
+-- converted and is dropped; runbook section 2 has the count check for it.
 
 CREATE OR ALTER VIEW fin.vw_dim_date AS
 SELECT
@@ -34,7 +37,7 @@ SELECT
     , a.is_payroll
 FROM dw.account AS a
 UNION ALL
-SELECT -1, '-1', 'Unknown', 'Unknown', 'Other', 9, 0;
+SELECT -1, '-1', 'Unknown', 'Unknown', 'Unknown', 9, 0;
 GO
 
 CREATE OR ALTER VIEW fin.vw_dim_cost_center AS

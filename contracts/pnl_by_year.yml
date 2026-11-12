@@ -17,7 +17,7 @@ sql: |
       FROM fin.vw_fact_gl_actual AS f
       JOIN fin.vw_dim_date AS d ON d.date_key = f.period_date_key
       JOIN fin.vw_dim_account AS a ON a.account_key = f.account_key
-      GROUP BY 1, 2
+      GROUP BY d.fiscal_year_label, a.account_class
   )
   SELECT
         fy AS "Date[Fiscal Year]"
@@ -27,4 +27,4 @@ sql: |
           / NULLIF(SUM(CASE WHEN cls = 'Revenue' THEN amt END), 0) AS "[Gross Margin %]"
       , SUM(CASE WHEN cls IN ('Revenue', 'COGS', 'Opex') THEN amt END) AS "[Operating Income]"
   FROM x
-  GROUP BY 1
+  GROUP BY fy

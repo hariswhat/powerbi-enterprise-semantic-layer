@@ -22,7 +22,7 @@ sql: |
            , MIN(d.fiscal_period_label) AS label, SUM(f.amount_usd) AS amt
       FROM fin.vw_fact_gl_actual AS f
       JOIN fin.vw_dim_date AS d ON d.date_key = f.period_date_key
-      GROUP BY 1, 2, 3
+      GROUP BY d.fiscal_year, d.fiscal_period, d.fiscal_quarter
   ), w AS (
       SELECT *
            , SUM(amt) OVER (PARTITION BY fy ORDER BY fp) AS ytd

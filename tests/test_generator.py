@@ -39,4 +39,14 @@ def test_reversals_net_to_zero(data_dir):
 def test_counts_file_matches_tables(data_dir):
     counts = json.loads((data_dir / "_counts.json").read_text())
     assert counts["gl_line"] == len(pd.read_parquet(data_dir / "gl_line.parquet"))
-    assert counts["late_journals"] > 0 and counts["reversal_journals"] > 0
+    assert counts["journals_posted_after_period_end"] >= counts["late_journals_generated"] > 0
+    assert counts["reversal_journals"] > 0
+
+
+def test_budget_rate_is_fixed_within_a_fiscal_year_and_moves_between_years(data_dir):
+    fx = pd.read_parquet(data_dir / "fx_rate.parquet")
+    fx["month_start"] = pd.to_datetime(fx["month_start"])
+    fx["fy"] = fx["month_start"].dt.year + (fx["month_start"].dt.month >= 7)
+    per_year = fx[fx["currency"] == "CAD"].groupby("fy")["budget_rate_to_usd"].nunique()
+    assert (per_year == 1).all()
+    assert fx[fx["currency"] == "CAD"]["budget_rate_to_usd"].nunique() == 3

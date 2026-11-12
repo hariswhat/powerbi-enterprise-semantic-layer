@@ -38,16 +38,11 @@ table Measures
 		displayFolder: Budget
 		lineageTag: d2a8271b-d8b9-5ef6-8563-3d9bbb3d6361
 
-	/// Forecast in USD at the budget rate. The selected version if one is filtered, otherwise the latest version in the model.
+	/// Forecast in USD at the budget rate, from one version: the latest version visible in the current filter (per year, account and so on), so selecting several versions never adds them together.
 	measure Forecast =
-			VAR LatestVersion =
-			    CALCULATE(MAX(Forecast[forecast_version_sort]), REMOVEFILTERS())
+			VAR LatestVersion = MAX(Forecast[forecast_version_sort])
 			RETURN
-			    IF(
-			        ISFILTERED(Forecast[Forecast Version]),
-			        SUM(Forecast[amount_usd]),
-			        CALCULATE(SUM(Forecast[amount_usd]), Forecast[forecast_version_sort] = LatestVersion)
-			    )
+			    CALCULATE(SUM(Forecast[amount_usd]), Forecast[forecast_version_sort] = LatestVersion)
 		formatString: #,0
 		displayFolder: Forecast
 		lineageTag: 2708f548-8417-589b-addf-e8704e0edd0b
@@ -103,6 +98,13 @@ table Measures
 		formatString: #,0
 		displayFolder: Payroll
 		lineageTag: aed4e6e6-71d1-517d-9c90-c30576ffa146
+
+	column Measures
+		dataType: string
+		isHidden
+		lineageTag: 4f6c0c55-3b5c-5b7e-9e1a-6d0f2a7c9b10
+		summarizeBy: none
+		sourceColumn: Measures
 
 	partition Measures = m
 		mode: import

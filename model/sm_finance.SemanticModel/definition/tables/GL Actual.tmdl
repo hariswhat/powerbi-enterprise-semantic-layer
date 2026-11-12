@@ -69,7 +69,7 @@ table 'GL Actual'
 				    Source = Sql.Database(SqlServer, SqlDatabase),
 				    View = Source{[Schema = "fin", Item = "vw_fact_gl_summary"]}[Data],
 				    Kept = Table.SelectColumns(View, {"period_date_key", "posting_date", "account_key", "cost_center_key", "entity_key", "is_reversal", "amount_usd", "amount_usd_budget_rate"}),
-				    InWindow = Table.SelectRows(Kept, each [posting_date] >= RangeStart and [posting_date] < RangeEnd)
+				    InWindow = Table.SelectRows(Kept, each [posting_date] >= Date.From(RangeStart) and [posting_date] < Date.From(RangeEnd))
 				in
 				    InWindow
 
@@ -84,6 +84,6 @@ table 'GL Actual'
 				    Source = Sql.Database(SqlServer, SqlDatabase),
 				    View = Source{[Schema = "fin", Item = "vw_fact_gl_summary"]}[Data],
 				    Kept = Table.SelectColumns(View, {"period_date_key", "posting_date", "account_key", "cost_center_key", "entity_key", "is_reversal", "amount_usd", "amount_usd_budget_rate"}),
-				    InWindow = Table.SelectRows(Kept, each [posting_date] >= RangeStart and [posting_date] < RangeEnd)
+				    InWindow = Table.SelectRows(Kept, each [posting_date] >= Date.From(RangeStart) and [posting_date] < Date.From(RangeEnd))
 				in
 				    InWindow

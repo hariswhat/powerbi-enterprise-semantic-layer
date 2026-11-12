@@ -37,7 +37,7 @@ table Date
 		lineageTag: 32eec35f-546b-5613-b24e-82c9a83f2727
 		summarizeBy: none
 		sourceColumn: month_name
-		sortByColumn: 'Calendar Month'
+		sortByColumn: 'Fiscal Period Number'
 
 	column 'Fiscal Year Number'
 		dataType: int64

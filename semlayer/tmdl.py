@@ -38,6 +38,7 @@ OBJECT_KEYWORDS = {
     "variation",
     "member",
     "dataAccessOptions",
+    "queryGroup",
 }
 NAME = r"'(?:[^']|'')*'|[^\s=']+"
 OBJECT_LINE = re.compile(rf"^(?P<kw>\w+)(?:\s+(?P<name>{NAME}))?(?:\s*=\s*(?P<expr>.*))?$")

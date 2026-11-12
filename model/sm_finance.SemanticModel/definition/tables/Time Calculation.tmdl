@@ -53,3 +53,6 @@ table 'Time Calculation'
 		lineageTag: 912cc78d-88f1-5576-b8e2-9c8fbd79c006
 		summarizeBy: none
 		sourceColumn: Ordinal
+
+	partition 'Time Calculation' = calculationGroup
+		mode: import

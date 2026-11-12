@@ -1,9 +1,9 @@
 name: rls_plant_controller
-description: A department-level grant sees only that department's cost centers. Run with the identity impersonated; the query asks for every division and must get one back.
+description: A department-level grant sees only that department's cost centers. Manual (runbook section 4) - executeQueries resolves the impersonated user's real role membership, and the release's service principal cannot impersonate on an RLS model. Run it in DAX Studio or the service as a member of Cost Center Access.
 measures: [Actual]
 keys: ["Cost Center[Division]", "Cost Center[Department]"]
 impersonate: plant.controller@northgate.example
-role: Cost Center Access
+manual: true
 dax: |
   EVALUATE
   SUMMARIZECOLUMNS(
@@ -21,4 +21,4 @@ sql: |
   JOIN fin.vw_security_cost_center AS s
     ON s.cost_center_key = f.cost_center_key
    AND s.user_principal_name = 'plant.controller@northgate.example'
-  GROUP BY 1, 2
+  GROUP BY cc.division, cc.department

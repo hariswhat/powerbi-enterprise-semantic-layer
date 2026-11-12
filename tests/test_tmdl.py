@@ -104,3 +104,32 @@ def test_partition_columns_exist_in_views(model, con):
         assert selected <= view_cols, (t.name, selected - view_cols)
         sources = {c.props["sourceColumn"] for c in t.all("column")}
         assert sources <= selected, (t.name, sources - selected)
+
+
+def test_sort_by_columns_are_one_to_one_in_the_data(model, con):
+    """Power BI refuses a sort-by column with more than one value per value of
+    the sorted column; the rule only sees names, so the data is checked here."""
+    import re
+
+    for t in model.tables:
+        p = t.first("partition")
+        m = re.search(r'Item = "([^"]+)"', p.props.get("source", "")) if p else None
+        if not m:
+            continue
+        src = {c.name: c.props.get("sourceColumn") for c in t.all("column")}
+        for c in t.all("column"):
+            target = c.props.get("sortByColumn", "").strip("'")
+            if not target:
+                continue
+            worst = con.execute(
+                f"SELECT MAX(n) FROM (SELECT COUNT(DISTINCT {src[target]}) AS n "
+                f"FROM fin.{m.group(1)} GROUP BY {src[c.name]})"
+            ).fetchone()[0]
+            assert worst == 1, (t.name, c.name, target)
+
+
+def test_restricted_roles_cannot_read_other_users_grants(model):
+    for r in model.roles:
+        filters = {p.name for p in r.all("tablePermission") if p.expression}
+        if filters:
+            assert "Security Cost Center" in filters, r.name

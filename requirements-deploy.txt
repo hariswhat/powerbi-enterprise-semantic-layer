@@ -1,5 +1,7 @@
-# Only the release pipeline needs these.
+# Only the release pipeline needs these. pyodbc also needs Microsoft ODBC
+# Driver 18 on the agent (installed by pipelines/release.yml).
 -r requirements.txt
 azure-identity==1.19.0
-fabric-cicd==0.1.7
+fabric-cicd==1.4.0
+pyodbc==5.2.0
 requests==2.32.3

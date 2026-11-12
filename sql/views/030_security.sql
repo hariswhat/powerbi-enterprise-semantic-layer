@@ -3,7 +3,8 @@
 -- Grants are made at four levels (ALL, DIVISION, DEPARTMENT, COST_CENTER) in
 -- dw.security_grant. Expanding them here, against the flattened cost center
 -- hierarchy, keeps the RLS rule in the model to one IN filter (ADR-0005).
--- The Unknown cost center (-1) is visible only to ALL grants.
+-- The Unknown cost center (-1) is visible to ALL grants, and to nobody else as
+-- long as no division or department is named 'Unknown'.
 
 CREATE OR ALTER VIEW fin.vw_security_cost_center AS
 SELECT DISTINCT

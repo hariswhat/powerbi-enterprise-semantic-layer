@@ -19,13 +19,13 @@ sql: |
       JOIN fin.vw_dim_date AS d ON d.date_key = p.period_date_key
       JOIN fin.vw_dim_cost_center AS cc ON cc.cost_center_key = p.cost_center_key
   ), last_period AS (
-      SELECT fy, division, MAX(pk) AS pk FROM p GROUP BY 1, 2
+      SELECT fy, division, MAX(pk) AS pk FROM p GROUP BY fy, division
   ), hc AS (
       SELECT p.fy, p.division, SUM(p.headcount) AS headcount
       FROM p JOIN last_period AS l ON l.fy = p.fy AND l.division = p.division AND l.pk = p.pk
-      GROUP BY 1, 2
+      GROUP BY p.fy, p.division
   ), cost AS (
-      SELECT fy, division, SUM(payroll_cost_usd) AS cost FROM p GROUP BY 1, 2
+      SELECT fy, division, SUM(payroll_cost_usd) AS cost FROM p GROUP BY fy, division
   )
   SELECT
         c.fy AS "Date[Fiscal Year]"

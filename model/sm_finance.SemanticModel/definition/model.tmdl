@@ -11,6 +11,10 @@ model Model
 
 	annotation PBI_QueryOrder = ["SqlServer","SqlDatabase","RangeStart","RangeEnd"]
 
+queryGroup Parameters
+
+	annotation PBI_QueryGroupOrder = 0
+
 ref table Date
 ref table Account
 ref table 'Cost Center'

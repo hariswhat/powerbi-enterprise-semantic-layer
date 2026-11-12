@@ -17,4 +17,4 @@ sql: |
   FROM fin.vw_fact_gl_actual AS f
   JOIN fin.vw_dim_date AS d ON d.date_key = f.period_date_key
   JOIN fin.vw_dim_account AS a ON a.account_key = f.account_key
-  GROUP BY 1, 2
+  GROUP BY d.fiscal_year_label, a.account_class

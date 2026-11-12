@@ -1,5 +1,5 @@
 name: forecast_versions
-description: Forecast with no version filter uses the latest version (9+3); with a version filtered it uses that version.
+description: Forecast uses one version, the latest visible in the filter, so each year shows its own latest version and selecting several versions never adds them. With one version filtered it uses that version.
 measures: [Forecast, Forecast Variance]
 keys: ["Date[Fiscal Year]"]
 dax: |
@@ -8,23 +8,32 @@ dax: |
       'Date'[Fiscal Year],
       "Forecast", [Forecast],
       "Forecast Variance", [Forecast Variance],
-      "Forecast 3+9", CALCULATE([Forecast], Forecast[Forecast Version] = "3+9")
+      "Forecast 3+9", CALCULATE([Forecast], Forecast[Forecast Version] = "3+9"),
+      "Forecast 3+9 and 6+6", CALCULATE([Forecast], Forecast[Forecast Version] IN {"3+9", "6+6"})
   )
 sql: |
-  WITH a AS (
-      SELECT d.fiscal_year_label AS fy, SUM(f.amount_usd_budget_rate) AS act
-      FROM fin.vw_fact_gl_actual AS f JOIN fin.vw_dim_date AS d ON d.date_key = f.period_date_key
-      GROUP BY 1
-  ), f AS (
-      SELECT d.fiscal_year_label AS fy
-           , SUM(CASE WHEN f.forecast_version = '9+3' THEN f.amount_usd END) AS latest
-           , SUM(CASE WHEN f.forecast_version = '3+9' THEN f.amount_usd END) AS first_version
+  WITH f AS (
+      SELECT d.fiscal_year_label AS fy, f.forecast_version_sort AS v, SUM(f.amount_usd) AS amt
       FROM fin.vw_fact_forecast AS f JOIN fin.vw_dim_date AS d ON d.date_key = f.period_date_key
-      GROUP BY 1
+      GROUP BY d.fiscal_year_label, f.forecast_version_sort
+  ), latest AS (
+      SELECT fy, MAX(v) AS v FROM f GROUP BY fy
+  ), a AS (
+      SELECT d.fiscal_year_label AS fy, SUM(g.amount_usd_budget_rate) AS act
+      FROM fin.vw_fact_gl_actual AS g JOIN fin.vw_dim_date AS d ON d.date_key = g.period_date_key
+      GROUP BY d.fiscal_year_label
+  ), fy AS (
+      SELECT f.fy
+           , SUM(CASE WHEN f.v = l.v THEN f.amt END) AS latest_amt
+           , SUM(CASE WHEN f.v = 1 THEN f.amt END) AS v1
+           , SUM(CASE WHEN f.v = 2 THEN f.amt END) AS v2
+      FROM f JOIN latest AS l ON l.fy = f.fy
+      GROUP BY f.fy
   )
   SELECT
-        f.fy AS "Date[Fiscal Year]"
-      , f.latest AS "[Forecast]"
-      , COALESCE(a.act, 0) - f.latest AS "[Forecast Variance]"
-      , f.first_version AS "[Forecast 3+9]"
-  FROM f LEFT JOIN a ON a.fy = f.fy
+        COALESCE(fy.fy, a.fy) AS "Date[Fiscal Year]"
+      , fy.latest_amt AS "[Forecast]"
+      , COALESCE(a.act, 0) - COALESCE(fy.latest_amt, 0) AS "[Forecast Variance]"
+      , fy.v1 AS "[Forecast 3+9]"
+      , fy.v2 AS "[Forecast 3+9 and 6+6]"
+  FROM fy FULL OUTER JOIN a ON a.fy = fy.fy

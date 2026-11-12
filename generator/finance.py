@@ -15,7 +15,8 @@ Shapes that matter for the model, planted on purpose:
     incremental refresh window has to cover that.
   * About 1% of journals are reversed by a second journal in the same period
     that nets to zero.
-  * Three entities in USD, CAD and MXN, with monthly average and budget rates.
+  * Three entities in USD, CAD and MXN, with monthly average rates and a budget
+    rate fixed per fiscal year at July's average.
   * Budget and forecast are monthly by account x cost center x entity.
   * Security grants are made at division, department or cost center level;
     the security view expands them to cost centers.
@@ -200,10 +201,12 @@ def months() -> list[date]:
 def fx_rates(cfg: Config) -> pd.DataFrame:
     rng, rows = cfg.rng("fx"), []
     for _, _, _, cur, start, sd in ENTITIES:
-        rate = start
+        rate, budget = start, start
         for m in months():
             rate = rate * (1 + rng.gauss(0, sd)) if sd else 1.0
-            budget = start  # budget rate is set once per fiscal year at the opening rate
+            if m.month == 7:
+                # The budget rate is fixed for each fiscal year at July's average.
+                budget = rate
             rows.append(
                 {
                     "currency": cur,
@@ -318,9 +321,11 @@ def gl_lines(cfg: Config, acc: pd.DataFrame, cc: pd.DataFrame) -> tuple[pd.DataF
                     )
         d += timedelta(days=1)
     df = pd.DataFrame(rows)
+    posted_late = df["posting_date"] > df["period_date"].map(period_end)
     stats = {
         "journals": journal_id,
-        "late_journals": late,
+        "late_journals_generated": late,
+        "journals_posted_after_period_end": int(df.loc[posted_late, "journal_id"].nunique()),
         "reversal_journals": reversed_n,
     }
     return df, stats
@@ -332,8 +337,9 @@ def plan_lines(cfg: Config, gl: pd.DataFrame, name: str, versions: list[str]) ->
     variances look like variances."""
     rng = cfg.rng(name)
     ent = entities().set_index("entity_id")["local_currency"].to_dict()
-    budget_rate = {cur: start for _, _, _, cur, start, _ in ENTITIES}
-    g = gl.assign(amount_usd=gl["amount_local"] * gl["entity_id"].map(ent).map(budget_rate))
+    rates = fx_rates(cfg).set_index(["currency", "month_start"])["budget_rate_to_usd"]
+    keys = list(zip(gl["entity_id"].map(ent), gl["period_date"], strict=True))
+    g = gl.assign(amount_usd=gl["amount_local"].to_numpy() * rates.loc[keys].to_numpy())
     monthly = (
         g.groupby(["period_date", "account_id", "cost_center_id", "entity_id"])["amount_usd"]
         .sum()
@@ -369,7 +375,8 @@ def payroll(cfg: Config, cc: pd.DataFrame) -> pd.DataFrame:
 
 
 def security_grants(cc: pd.DataFrame) -> pd.DataFrame:
-    """Grants at three levels. user principal names are fictional."""
+    """Grants at four levels (ALL, DIVISION, DEPARTMENT, COST_CENTER).
+    User principal names are fictional."""
     first_dept = cc.iloc[0]["department"]
     return pd.DataFrame(
         [
@@ -434,7 +441,7 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=7)
     a = p.parse_args()
     for k, v in generate(a.out, Config(a.scale, a.seed)).items():
-        print(f"{k:<20}{v:>12,}")
+        print(f"{k:<36}{v:>12,}")
 
 
 if __name__ == "__main__":

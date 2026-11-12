@@ -1,7 +1,10 @@
 /// The same rows as Cost Center Access, with Payroll visible. A separate role
-/// because RLS and OLS cannot be combined across roles: a user in both
-/// Cost Center Access and an unrestricted role would get an error (ADR-0005).
+/// rather than an OLS-only add-on, because Power BI rejects a user whose roles
+/// combine OLS in one role with RLS in another (ADR-0005). For the same reason
+/// nobody may be in both this role and Cost Center Access.
 role 'Cost Center Access with Payroll'
 	modelPermission: read
+
+	tablePermission 'Security Cost Center' = [User Principal Name] = USERPRINCIPALNAME()
 
 	tablePermission 'Cost Center' = [Cost Center Key] IN CALCULATETABLE(VALUES('Security Cost Center'[Cost Center Key]), 'Security Cost Center'[User Principal Name] = USERPRINCIPALNAME())

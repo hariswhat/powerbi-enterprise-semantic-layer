@@ -1,18 +1,23 @@
 # Release sm_finance: tst, then prd after approval.
 #
-# tst: deploy, refresh, then run every measure contract against the refreshed
-# model. The tst warehouse is loaded from the generator with the same seed and
-# scale as the contracts' SQL side, so the two must agree to the cent.
-# prd: deploy and refresh only. Contracts are not run in prd, where the data is
-# real and the SQL side would have to read the production warehouse.
+# Each stage applies the fin views, deploys the model and refreshes it; prd
+# also gets the nightly refresh schedule. tst also recreates its warehouse data from the
+# generator (same seed and scale as the contracts' SQL side) and runs every
+# automated contract against the refreshed model. prd does not run contracts:
+# its data is real and the SQL side reads generated data.
+#
+# One-time setup per environment, not done here: the model's data source
+# credentials (runbook section 6) and role membership (runbook section 4).
 
 trigger:
   branches: { include: [main] }
-  paths: { include: [model/*, deploy/*, contracts/*, sql/*] }
+  paths: { include: [model/*, deploy/*, contracts/*, sql/*, generator/*, semlayer/*] }
 
 variables:
   SCALE: "0.02"
   SEED: "7"
+  SQL_DATABASE: finance_dw
+  TST_EFFECTIVE_DATE: "2026-06-30"   # last day of the generated data
 
 stages:
   - stage: validate
@@ -24,11 +29,13 @@ stages:
             inputs: { versionSpec: '3.11' }
           - script: |
               python -m pip install -r requirements-dev.txt
+              ruff check . && ruff format --check .
+              sqlfluff lint sql
               python -m semlayer.check
               pytest -q
               python -m deploy.deploy --env tst --workspace-id dry --dry-run
               python -m deploy.deploy --env prd --workspace-id dry --dry-run
-            displayName: rules, tests, parameter coverage
+            displayName: lint, rules, tests, parameter coverage
 
   - ${{ each env in split('tst,prd', ',') }}:
       - stage: release_${{ env }}
@@ -37,7 +44,7 @@ stages:
         ${{ if eq(env, 'prd') }}:
           dependsOn: release_tst
         variables:
-          - group: finance-model-${{ env }}   # WORKSPACE_ID, DATASET_ID, SQL_SERVER, SQL_DATABASE
+          - group: finance-model-${{ env }}   # WORKSPACE_ID, DATASET_ID, SQL_SERVER
         jobs:
           - deployment: release
             environment: finance-model-${{ env }}   # prd has an approval check
@@ -49,24 +56,46 @@ stages:
                     - checkout: self
                     - task: UsePythonVersion@0
                       inputs: { versionSpec: '3.11' }
-                    - script: python -m pip install -r requirements-deploy.txt
+                    - script: |
+                        set -euo pipefail
+                        # ODBC Driver 18 for pyodbc; go-sqlcmd for the SQL files.
+                        curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc > /dev/null
+                        curl -sSL https://packages.microsoft.com/config/ubuntu/22.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list > /dev/null
+                        sudo apt-get update -q
+                        sudo ACCEPT_EULA=Y apt-get install -y -q msodbcsql18 sqlcmd
+                        python -m pip install -r requirements-deploy.txt
                       displayName: install
                     - task: AzureCLI@2
-                      displayName: deploy and refresh (and contracts in tst)
+                      displayName: SQL, deploy, refresh (and contracts in tst)
                       inputs:
                         azureSubscription: sc-finance-model-${{ env }}
                         scriptType: bash
                         scriptLocation: inlineScript
                         inlineScript: |
                           set -euo pipefail
-                          python -m deploy.deploy --env ${{ env }} --workspace-id $(WORKSPACE_ID)
+                          run_sql() {
+                            sqlcmd -S "$(SQL_SERVER)" -d "$(SQL_DATABASE)" \
+                              --authentication-method ActiveDirectoryDefault -b -i "$1"
+                          }
                           if [ "${{ env }}" = "tst" ]; then
-                            # tst warehouse holds generated data, reloaded each release so the
-                            # contracts' SQL side and the model read identical rows.
-                            python -m generator.finance --out data --scale $(SCALE) --seed $(SEED)
-                            python -m deploy.load_tst_warehouse --data data --server $(SQL_SERVER) --database $(SQL_DATABASE)
+                            # dw tables belong to the warehouse team in prd; tst owns its own.
+                            for f in sql/warehouse/*.sql; do run_sql "$f"; done
                           fi
-                          python -m deploy.refresh --workspace-id $(WORKSPACE_ID) --dataset-id $(DATASET_ID)
+                          for f in sql/views/*.sql; do run_sql "$f"; done
+
+                          python -m deploy.deploy --env ${{ env }} --workspace-id $(WORKSPACE_ID)
+
                           if [ "${{ env }}" = "tst" ]; then
+                            python -m generator.finance --out data --scale $(SCALE) --seed $(SEED)
+                            python -m deploy.load_tst_warehouse --data data \
+                              --server "$(SQL_SERVER)" --database "$(SQL_DATABASE)"
+                            python -m deploy.refresh --workspace-id $(WORKSPACE_ID) \
+                              --dataset-id $(DATASET_ID) --effective-date $(TST_EFFECTIVE_DATE)
                             python -m semlayer.contracts --data data --dataset-id $(DATASET_ID)
+                          else
+                            python -m deploy.refresh --workspace-id $(WORKSPACE_ID) --dataset-id $(DATASET_ID)
+                            # Nightly refresh in prd only; tst refreshes in the release with a
+                            # pinned effective date so its contracts stay valid.
+                            python -m deploy.refresh --workspace-id $(WORKSPACE_ID) \
+                              --dataset-id $(DATASET_ID) --schedule 06:30
                           fi

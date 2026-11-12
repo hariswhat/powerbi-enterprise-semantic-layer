@@ -3,6 +3,8 @@
 role 'Cost Center Access'
 	modelPermission: read
 
+	tablePermission 'Security Cost Center' = [User Principal Name] = USERPRINCIPALNAME()
+
 	tablePermission 'Cost Center' = [Cost Center Key] IN CALCULATETABLE(VALUES('Security Cost Center'[Cost Center Key]), 'Security Cost Center'[User Principal Name] = USERPRINCIPALNAME())
 
 	tablePermission Payroll

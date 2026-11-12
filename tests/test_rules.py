@@ -107,6 +107,43 @@ def test_date_table_fires_when_unmarked():
     assert rules.check(model_of("table D\n\tlineageTag: x\n"), only=["DATE_TABLE"])
 
 
+def test_exemption_works_for_any_rule():
+    text = (
+        "table Measures\n\t/// d\n\tmeasure X = 1\n\t\tdisplayFolder: F\n\n"
+        "\t\tannotation rules_exempt = MEASURE_FORMAT\n"
+    )
+    assert rules.check(model_of(text), only=["MEASURE_FORMAT"]) == []
+    assert rules.check(model_of(text.replace("MEASURE_FORMAT", "OTHER")), only=["MEASURE_FORMAT"])
+
+
+def test_divide_checks_calculation_items():
+    text = "table TC\n\tcalculationGroup\n\t\tcalculationItem Ratio = SELECTEDMEASURE() / 2\n"
+    assert rules.check(model_of(text), only=["DIVIDE"])
+
+
+def test_divide_ignores_block_comments():
+    text = "table Measures\n\t/// d\n\tmeasure X = /* a/b */ 1\n\t\tformatString: 0\n\t\tdisplayFolder: F\n"
+    assert rules.check(model_of(text), only=["DIVIDE"]) == []
+
+
+def test_rls_dynamic_rejects_a_literal_alongside_the_security_table():
+    text = (
+        "role R\n\tmodelPermission: read\n\n\ttablePermission D = D[Key] = 101 || "
+        "D[Key] IN CALCULATETABLE(VALUES('Security Cost Center'[Cost Center Key]), "
+        "'Security Cost Center'[User Principal Name] = USERPRINCIPALNAME())\n"
+    )
+    assert rules.check(model_of(text), only=["RLS_DYNAMIC"])
+
+
+def test_incremental_filter_needs_one_column_for_both_bounds():
+    expr = "each [a] >= RangeStart and [b] < RangeEnd"
+    text = (
+        f"table F\n\tpartition F = m\n\t\tsource =\n\t\t\t\t{expr}\n\n"
+        f"\trefreshPolicy\n\t\tpolicyType: basic\n\t\tsourceExpression =\n\t\t\t\t{expr}\n"
+    )
+    assert rules.check(model_of(text), only=["INCREMENTAL_FILTER"])
+
+
 def test_exemption_annotation_silences_one_rule():
     text = (
         "table D\n\tcolumn K\n\t\tdataType: int64\n\t\tsourceColumn: d_key\n\n"

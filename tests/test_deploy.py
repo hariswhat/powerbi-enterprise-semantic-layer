@@ -1,5 +1,5 @@
 from deploy.deploy import ENVS, parameter_problems
-from deploy.refresh import refresh_body
+from deploy.refresh import FINAL, refresh_body, schedule_body
 
 
 def test_parameters_cover_every_environment():
@@ -13,6 +13,13 @@ def test_refresh_applies_the_policy_transactionally():
     assert "objects" not in body
     assert refresh_body(["GL Actual"])["objects"] == [{"table": "GL Actual"}]
     assert refresh_body(["GL Actual"], apply_policy=False)["applyRefreshPolicy"] is False
+    assert refresh_body(effective_date="2026-06-30")["effectiveDate"] == "2026-06-30"
+    assert "TimedOut" in FINAL
+
+
+def test_schedule_is_daily():
+    v = schedule_body(["06:30"])["value"]
+    assert v["enabled"] and len(v["days"]) == 7 and v["times"] == ["06:30"]
 
 
 def test_dw_ddl_declares_every_generated_column(data_dir):
